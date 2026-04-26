@@ -1,5 +1,27 @@
 // Blog list, single post, Products page, Contacts page, Admin page
 
+function PaginationControls({ currentPage, totalPages, onPageChange, label }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="blog-pagination" aria-label={label || 'Pagination'}>
+      <button type="button" disabled={currentPage === 1} onClick={() => onPageChange(Math.max(1, currentPage - 1))}>Previous</button>
+      {Array.from({ length: totalPages }, (_, i) => (
+        <button
+          key={i + 1}
+          type="button"
+          className={currentPage === i + 1 ? 'active' : ''}
+          onClick={() => onPageChange(i + 1)}
+          aria-label={'Go to page ' + (i + 1)}
+        >
+          {i + 1}
+        </button>
+      ))}
+      <button type="button" disabled={currentPage === totalPages} onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}>Next</button>
+    </div>
+  );
+}
+
 function BlogPage() {
   const store = useStore();
   const posts = window.cheerStore.getPosts().filter(p => p.published !== false && p.status !== 'product');
@@ -18,6 +40,7 @@ function BlogPage() {
         <span style={{ fontFamily: "'Vollkorn SC', serif", letterSpacing: '0.08em', fontSize: 13, color: 'var(--ink-2)' }}>
           {posts.length} {posts.length === 1 ? 'POST' : 'POSTS'}
         </span>
+        <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Blog pagination top" />
         {totalPages > 1 && (
           <span className="blog-page-count">Page {currentPage} of {totalPages}</span>
         )}
@@ -26,7 +49,7 @@ function BlogPage() {
         {visiblePosts.map(p => (
           <a key={p.id} className="post-card" href={'#post/' + p.id}>
             <div className="post-cover">
-              {p.cover ? <img src={p.cover} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
+              {p.cover ? <img src={p.cover} alt="" style={getCoverImageStyle(p.coverPosition, p.coverZoom)} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
             </div>
             <div className="body">
               <div className="meta">
@@ -42,23 +65,7 @@ function BlogPage() {
           </a>
         ))}
       </div>
-      {totalPages > 1 && (
-        <div className="blog-pagination">
-          <button type="button" disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Previous</button>
-          {Array.from({ length: totalPages }, (_, i) => (
-            <button
-              key={i + 1}
-              type="button"
-              className={currentPage === i + 1 ? 'active' : ''}
-              onClick={() => setPage(i + 1)}
-              aria-label={'Go to blog page ' + (i + 1)}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button type="button" disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Next</button>
-        </div>
-      )}
+      <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Blog pagination bottom" />
     </div>
   );
 }
@@ -68,6 +75,46 @@ function formatDate(iso) {
   const d = new Date(iso);
   if (isNaN(d)) return iso;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getCoverPosition(position) {
+  const legacyPositions = {
+    'center top': '50% 0%',
+    'center 25%': '50% 25%',
+    'center center': '50% 50%',
+    'center 70%': '50% 70%',
+    'center bottom': '50% 100%',
+    'left center': '0% 50%',
+    'right center': '100% 50%',
+  };
+  if (legacyPositions[position]) return legacyPositions[position];
+  return /^\d{1,3}% \d{1,3}%$/.test(position || '') ? position : '50% 0%';
+}
+
+function getCoverCrop(position) {
+  const [x, y] = getCoverPosition(position).split(' ').map(value => parseInt(value, 10));
+  return { x, y };
+}
+
+function setCoverCropAxis(position, axis, value) {
+  const crop = getCoverCrop(position);
+  const nextValue = Math.min(100, Math.max(0, parseInt(value, 10) || 0));
+  return axis === 'x' ? `${nextValue}% ${crop.y}%` : `${crop.x}% ${nextValue}%`;
+}
+
+function getCoverZoom(zoom) {
+  return Math.min(180, Math.max(60, parseInt(zoom, 10) || 100));
+}
+
+function getCoverImageStyle(position, zoom, extra = {}) {
+  const coverPosition = getCoverPosition(position);
+  return {
+    objectFit: 'contain',
+    objectPosition: coverPosition,
+    transform: `scale(${getCoverZoom(zoom) / 100})`,
+    transformOrigin: coverPosition,
+    ...extra,
+  };
 }
 
 function renderInlineText(text) {
@@ -154,7 +201,7 @@ function MediaAsset({ id, alt = '' }) {
 }
 
 function parseMediaOptions(parts) {
-  const options = { caption: '', sideText: '', size: 'full', align: 'center', wrap: false };
+  const options = { caption: '', sideText: '', size: 'full', align: 'center', wrap: false, columns: 2 };
 
   parts.forEach(part => {
     const value = (part || '').trim();
@@ -172,6 +219,7 @@ function parseMediaOptions(parts) {
     if (key === 'size' && ['small', 'medium', 'large', 'full'].includes(optionValue)) options.size = optionValue;
     if (key === 'align' && ['left', 'center', 'right'].includes(optionValue)) options.align = optionValue;
     if (key === 'wrap') options.wrap = ['true', 'yes', '1'].includes(optionValue);
+    if (key === 'columns') options.columns = Math.min(5, Math.max(2, parseInt(optionValue, 10) || 2));
     if (key === 'sidetext') {
       try {
         options.sideText = decodeURIComponent(rawOptionValue);
@@ -186,37 +234,73 @@ function parseMediaOptions(parts) {
 }
 
 function buildMediaToken(type, src, options = {}) {
+  const mediaSrc = Array.isArray(src) ? src.map(value => encodeURIComponent(value)).join(',') : src;
   const parts = [
     options.caption || '',
     'size=' + (options.size || 'full'),
     'align=' + (options.align || 'center'),
     'wrap=' + !!options.wrap,
+    type === 'gallery' ? 'columns=' + Math.min(5, Math.max(2, parseInt(options.columns, 10) || 2)) : '',
     options.sideText ? 'sideText=' + encodeURIComponent(options.sideText) : '',
   ].filter(Boolean);
 
-  return `{{${type}:${src}${parts.length ? '|' + parts.join('|') : ''}}}`;
+  return `{{${type}:${mediaSrc}${parts.length ? '|' + parts.join('|') : ''}}}`;
+}
+
+function parseGallerySources(src) {
+  return (src || '').split(',').map(value => {
+    try {
+      return decodeURIComponent(value);
+    } catch (e) {
+      return value;
+    }
+  }).filter(Boolean).slice(0, 5);
 }
 
 function renderPostBody(body, editor = {}) {
   return (body || '').split(/\n\s*\n/).map((b, i) => {
     const trim = b.trim();
-    const media = trim.match(/^\{\{(image|video|youtube):([^|}]+)((?:\|[^}]*)?)\}\}$/);
+    const media = trim.match(/^\{\{(image|video|youtube|gallery):([^|}]+)((?:\|[^}]*)?)\}\}$/);
     if (media) {
       const [, type, src, rawOptions] = media;
       const options = parseMediaOptions((rawOptions || '').split('|').slice(1));
       const cleanSrc = src.trim();
       const mediaId = cleanSrc.startsWith('media:') ? cleanSrc.slice(6) : '';
       const youtubeSrc = (type === 'youtube' || type === 'video') ? getYouTubeEmbedUrl(cleanSrc) : '';
+      const gallerySources = type === 'gallery' ? parseGallerySources(cleanSrc) : [];
       const mediaClass = [
         'post-media',
         'post-media-' + options.size,
         'post-media-' + options.align,
         options.wrap ? 'post-media-wrap' : 'post-media-no-wrap',
       ].join(' ');
-      const canEdit = editor.onMediaChange && editor.onMediaDelete && type === 'image';
+      const canEdit = editor.onMediaChange && editor.onMediaDelete && (type === 'image' || type === 'gallery');
       const mediaFigure = (
-        <figure className={mediaClass}>
-          {youtubeSrc ? (
+        <figure className={type === 'gallery' ? 'post-media post-gallery post-gallery-columns-' + options.columns : mediaClass}>
+          {type === 'gallery' ? (
+            <div className="post-gallery-grid">
+              {gallerySources.map((source, galleryIndex) => {
+                const galleryMediaId = source.startsWith('media:') ? source.slice(6) : '';
+                return (
+                  <div className="post-gallery-item" key={galleryIndex}>
+                    {galleryMediaId
+                      ? <MediaAsset id={galleryMediaId} alt={options.caption || ''} />
+                      : <img src={source} alt={options.caption || ''} />}
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className="gallery-image-remove"
+                        onClick={() => editor.onGalleryImageDelete(i, galleryIndex)}
+                        aria-label={'Remove image ' + (galleryIndex + 1)}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : youtubeSrc ? (
             <div className="post-youtube">
               <iframe
                 src={youtubeSrc}
@@ -233,7 +317,30 @@ function renderPostBody(body, editor = {}) {
             <img src={cleanSrc} alt={options.caption || ''} />
           )}
           {options.caption ? <figcaption>{options.caption}</figcaption> : null}
-          {canEdit ? (
+          {canEdit && type === 'gallery' ? (
+            <div className="media-preview-controls">
+              <label>
+                Images in row
+                <select value={options.columns} onChange={e => editor.onMediaChange(i, { columns: e.target.value })}>
+                  <option value="2">2 images</option>
+                  <option value="3">3 images</option>
+                  <option value="4">4 images</option>
+                  <option value="5">5 images</option>
+                </select>
+              </label>
+              <label className="media-preview-caption">
+                Caption
+                <input value={options.caption} onChange={e => editor.onMediaChange(i, { caption: e.target.value })} />
+              </label>
+              {gallerySources.length < 5 ? (
+                <label className="gallery-add-btn">
+                  Add images
+                  <input type="file" accept="image/*" multiple onChange={e => editor.onGalleryAdd(i, e)} />
+                </label>
+              ) : null}
+              <button type="button" className="media-delete-btn" onClick={() => editor.onMediaDelete(i)}>Delete images</button>
+            </div>
+          ) : canEdit ? (
             <div className="media-preview-controls">
               <label>
                 Size
@@ -288,6 +395,22 @@ function renderPostBody(body, editor = {}) {
       );
     }
 
+    const standaloneYouTubeSrc = getYouTubeEmbedUrl(trim);
+    if (standaloneYouTubeSrc) {
+      return (
+        <figure key={i} className="post-media post-media-full post-media-center post-media-no-wrap">
+          <div className="post-youtube">
+            <iframe
+              src={standaloneYouTubeSrc}
+              title="YouTube video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </figure>
+      );
+    }
+
     if (trim.startsWith('## ')) return <h2 key={i}>{renderInlineText(trim.slice(3))}</h2>;
     if (trim.startsWith('# ')) return <h2 key={i}>{renderInlineText(trim.slice(2))}</h2>;
     return <p key={i}>{renderInlineText(trim)}</p>;
@@ -311,17 +434,19 @@ function PostPage({ id }) {
   const isProductPost = post.status === 'product';
   return (
     <div className="page post-page">
-      <a href={isProductPost ? '#products' : '#blog'} className="back-link">← Back to {isProductPost ? 'products' : 'blog'}</a>
-      {post.cover ? <div className="post-cover"><img src={post.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} /></div> : null}
-      <h1>{post.title}</h1>
-      <div className="meta">{isProductPost ? 'PRODUCT · ' : ''}{formatDate(post.date)} · {post.author}{post.pinned ? ' · PINNED' : ''}</div>
-      <div className="post-body">{blocks}</div>
-      {isProductPost && (post.appStore || post.googlePlay) ? (
-        <div className="stores product-detail-stores">
-          {post.appStore ? <StoreButton kind="apple" href={post.appStore} /> : null}
-          {post.googlePlay ? <StoreButton kind="google" href={post.googlePlay} /> : null}
-        </div>
-      ) : null}
+      <article className="detail-content-panel">
+        <a href={isProductPost ? '#products' : '#blog'} className="back-link">← Back to {isProductPost ? 'products' : 'blog'}</a>
+        {post.cover ? <div className="post-cover"><img src={post.cover} alt="" style={getCoverImageStyle(post.coverPosition, post.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
+        <h1>{post.title}</h1>
+        <div className="meta">{isProductPost ? 'PRODUCT · ' : ''}{formatDate(post.date)} · {post.author}{post.pinned ? ' · PINNED' : ''}</div>
+        <div className="post-body">{blocks}</div>
+        {isProductPost && (post.appStore || post.googlePlay) ? (
+          <div className="stores product-detail-stores">
+            {post.appStore ? <StoreButton kind="apple" href={post.appStore} /> : null}
+            {post.googlePlay ? <StoreButton kind="google" href={post.googlePlay} /> : null}
+          </div>
+        ) : null}
+      </article>
     </div>
   );
 }
@@ -341,37 +466,53 @@ function ProductDetailPage({ id }) {
 
   return (
     <div className="page post-page product-detail-page">
-      <a href="#products" className="back-link">← Back to products</a>
-      <div className="product-detail-hero">
-        <PhoneMockup src={product.hero} alt={product.name} className="product-detail-phone" />
-      </div>
-      <div className="meta">PRODUCT · {product.eyebrow}</div>
-      <h1>{product.title || product.name}</h1>
-      <div className="post-body">
-        <p>{product.description}</p>
-      </div>
-      <div className="stores product-detail-stores">
-        <StoreButton kind="apple" href={product.appStore} />
-        <StoreButton kind="google" href={product.googlePlay} />
-      </div>
+      <article className="detail-content-panel">
+        <a href="#products" className="back-link">← Back to products</a>
+        <div className="product-detail-hero">
+          <PhoneMockup src={product.hero} alt={product.name} className="product-detail-phone" />
+        </div>
+        <div className="meta">PRODUCT · {product.eyebrow}</div>
+        <h1>{product.title || product.name}</h1>
+        <div className="post-body">
+          <p>{product.description}</p>
+        </div>
+        <div className="stores product-detail-stores">
+          <StoreButton kind="apple" href={product.appStore} />
+          <StoreButton kind="google" href={product.googlePlay} />
+        </div>
+      </article>
     </div>
   );
 }
 
 function ProductsPage() {
-  const store = useStore();
   const productPosts = window.cheerStore.getPosts().filter(p => p.published !== false && p.status === 'product');
+  const products = productPosts;
+  const pageSize = 20;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleProducts = products.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   return (
     <div className="page">
       <section className="blog-hero">
         <h1>Products</h1>
         <p>Five small apps under one warm roof. Each does one thing, slowly, and well.</p>
       </section>
+      <div className="blog-toolbar">
+        <span style={{ fontFamily: "'Vollkorn SC', serif", letterSpacing: '0.08em', fontSize: 13, color: 'var(--ink-2)' }}>
+          {products.length} {products.length === 1 ? 'PRODUCT' : 'PRODUCTS'}
+        </span>
+        <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Products pagination top" />
+        {totalPages > 1 && (
+          <span className="blog-page-count">Page {currentPage} of {totalPages}</span>
+        )}
+      </div>
       <div className="products-grid">
-        {productPosts.map(p => (
+        {visibleProducts.map(p => (
           <a key={p.id} className="product-card product-post-card" href={'#post/' + p.id}>
             <div className="post-cover product-post-cover">
-              {p.cover ? <img src={p.cover} alt="" /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
+              {p.cover ? <img src={p.cover} alt="" style={getCoverImageStyle(p.coverPosition, p.coverZoom)} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
             </div>
             <p style={{ fontFamily: "'Vollkorn SC', serif", fontSize: 12, letterSpacing: '0.16em', color: 'var(--honey-deep)', margin: '0 0 4px' }}>PRODUCT</p>
             <h3>{p.title}</h3>
@@ -385,22 +526,8 @@ function ProductsPage() {
             <span className="read-more">Read about product →</span>
           </a>
         ))}
-        {store.products.map(p => (
-          <div key={p.id} className="product-card">
-            <h3>{p.title || p.name}</h3>
-            <div className="product-card-visual">
-              <PhoneMockup src={p.hero} alt={p.name} className="product-phone" />
-            </div>
-            <p style={{ fontFamily: "'Vollkorn SC', serif", fontSize: 12, letterSpacing: '0.16em', color: 'var(--honey-deep)', margin: '0 0 4px' }}>{p.eyebrow}</p>
-            <p>{p.tagline}</p>
-            <div className="stores">
-              <StoreButton kind="apple" href={p.appStore} />
-              <StoreButton kind="google" href={p.googlePlay} />
-            </div>
-            <a href={'#product/' + p.id} className="read-more product-read-more">Read about product →</a>
-          </div>
-        ))}
       </div>
+      <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Products pagination bottom" />
     </div>
   );
 }
@@ -485,22 +612,36 @@ function AdminPage() {
   const store = useStore();
   const posts = window.cheerStore.getPosts();
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ title: '', excerpt: '', cover: '', productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
   const [showPreview, setShowPreview] = useState(false);
   const [postFilter, setPostFilter] = useState('all');
-  const [mediaComposer, setMediaComposer] = useState({ url: '', uploadedSrc: '', uploadedName: '', caption: '', sideText: '', size: 'full', align: 'center', wrap: false });
+  const [postSearch, setPostSearch] = useState('');
+  const [toast, setToast] = useState('');
+  const [mediaComposer, setMediaComposer] = useState({ url: '', uploadedSrc: '', uploadedName: '', uploadedSources: [], uploadedNames: [], caption: '', sideText: '', size: 'full', align: 'center', wrap: false, columns: 2 });
   const fileRef = useRef(null);
   const bodyRef = useRef(null);
-  const filteredPosts = posts.filter(p => postFilter === 'all' || (postFilter === 'product' ? p.status === 'product' : p.status !== 'product'));
+  const toastTimerRef = useRef(null);
+  const filteredPosts = posts.filter(p => {
+    const matchesFilter = postFilter === 'all' || (postFilter === 'product' ? p.status === 'product' : p.status !== 'product');
+    const matchesSearch = !postSearch.trim() || (p.title || '').toLowerCase().includes(postSearch.trim().toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+  const coverCrop = getCoverCrop(form.coverPosition);
+  const coverZoom = getCoverZoom(form.coverZoom);
 
+  function showAdminToast(message) {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(''), 3200);
+  }
   function reset() {
     setEditingId(null);
-    setForm({ title: '', excerpt: '', cover: '', productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
+    setForm({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
     setShowPreview(false);
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ title: p.title, excerpt: p.excerpt, cover: p.cover, productIcon: p.productIcon || '', appStore: p.appStore || '', googlePlay: p.googlePlay || '', includeInCarousel: !!p.includeInCarousel, author: p.author, body: p.body, pinned: !!p.pinned, published: p.published !== false, status: p.status === 'product' ? 'product' : 'blog', date: p.date });
+    setForm({ title: p.title, excerpt: p.excerpt, cover: p.cover, coverPosition: getCoverPosition(p.coverPosition), coverZoom: getCoverZoom(p.coverZoom), productIcon: p.productIcon || '', appStore: p.appStore || '', googlePlay: p.googlePlay || '', includeInCarousel: !!p.includeInCarousel, author: p.author, body: p.body, pinned: !!p.pinned, published: p.published !== false, status: p.status === 'product' ? 'product' : 'blog', date: p.date });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function savePost(publishedOverride = form.published) {
@@ -513,7 +654,13 @@ function AdminPage() {
     const saved = editingId
       ? window.cheerStore.updatePost(editingId, postData)
       : window.cheerStore.addPost(postData);
-    if (saved) reset();
+    if (saved) {
+      const message = publishedOverride
+        ? editingId ? 'Changes saved and post is published.' : 'Post published successfully.'
+        : 'Draft saved successfully.';
+      reset();
+      showAdminToast(message);
+    }
   }
   function submit(e) {
     e.preventDefault();
@@ -544,23 +691,33 @@ function AdminPage() {
     }
   }
   async function stageBodyMedia(e) {
-    const f = e.target.files && e.target.files[0];
+    const selectedFiles = Array.from(e.target.files || []).slice(0, 5);
     e.target.value = '';
-    if (!f) return;
-    if (f.type.startsWith('video/')) {
+    if (!selectedFiles.length) return;
+    if ((e.target.files || []).length > 5) {
+      alert('You can add up to 5 images in one line. I selected the first 5.');
+    }
+    if (selectedFiles.some(file => file.type.startsWith('video/'))) {
       alert('Video files are too large for browser storage. Please add videos by URL instead.');
       return;
     }
     try {
-      const mediaFile = f.type === 'image/gif'
-        ? f
-        : await resizeImageFile(f, { maxWidth: 1800, maxHeight: 1800, quality: 0.84 });
-      const mediaId = await window.cheerMedia.saveFile(mediaFile);
+      const savedFiles = [];
+      for (const f of selectedFiles) {
+        const mediaFile = f.type === 'image/gif'
+          ? f
+          : await resizeImageFile(f, { maxWidth: 1800, maxHeight: 1800, quality: 0.84 });
+        const mediaId = await window.cheerMedia.saveFile(mediaFile);
+        savedFiles.push({ src: 'media:' + mediaId, name: f.name });
+      }
       setMediaComposer(s => ({
         ...s,
-        uploadedSrc: 'media:' + mediaId,
-        uploadedName: f.name,
-        caption: s.caption || f.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '),
+        uploadedSrc: savedFiles[0].src,
+        uploadedName: savedFiles.map(file => file.name).join(', '),
+        uploadedSources: savedFiles.map(file => file.src),
+        uploadedNames: savedFiles.map(file => file.name),
+        columns: Math.min(5, Math.max(2, savedFiles.length)),
+        caption: s.caption || (savedFiles.length === 1 ? savedFiles[0].name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ') : ''),
       }));
     } catch (error) {
       alert('Could not save this image. Please try a smaller image or use an image URL.');
@@ -579,7 +736,10 @@ function AdminPage() {
       'align=' + normalizedOptions.align,
       'wrap=' + normalizedOptions.wrap,
     ].filter(Boolean);
-    const mediaBlock = `\n\n{{${normalizedType}:${src}${optionParts.length ? '|' + optionParts.join('|') : ''}}}\n\n`;
+    if (options.sideText) optionParts.push('sideText=' + encodeURIComponent(options.sideText));
+    if (normalizedType === 'gallery') optionParts.push('columns=' + Math.min(5, Math.max(2, parseInt(options.columns, 10) || 2)));
+    const mediaSrc = Array.isArray(src) ? src.map(value => encodeURIComponent(value)).join(',') : src;
+    const mediaBlock = `\n\n{{${normalizedType}:${mediaSrc}${optionParts.length ? '|' + optionParts.join('|') : ''}}}\n\n`;
     const textarea = bodyRef.current;
     const start = textarea ? textarea.selectionStart : form.body.length;
     const end = textarea ? textarea.selectionEnd : form.body.length;
@@ -596,22 +756,27 @@ function AdminPage() {
   }
   function addComposerMedia() {
     const cleanUrl = mediaComposer.url.trim();
-    const source = mediaComposer.uploadedSrc || cleanUrl;
+    const hasGallery = mediaComposer.uploadedSources.length > 1;
+    const source = hasGallery ? mediaComposer.uploadedSources.slice(0, 5) : mediaComposer.uploadedSrc || cleanUrl;
     if (!source) {
       alert('Upload an image/GIF or paste a media URL first.');
       return;
     }
-    const lowerUrl = source.toLowerCase();
-    const type = isYouTubeUrl(source)
+    const lowerUrl = Array.isArray(source) ? '' : source.toLowerCase();
+    const type = hasGallery
+      ? 'gallery'
+      : isYouTubeUrl(source)
       ? 'youtube'
       : /\.(mp4|webm|ogg)(\?|#|$)/i.test(lowerUrl)
         ? 'video'
         : 'image';
     const options = type === 'image'
       ? { size: mediaComposer.size, align: mediaComposer.align, wrap: mediaComposer.wrap, sideText: mediaComposer.sideText }
+      : type === 'gallery'
+        ? { columns: mediaComposer.columns, caption: mediaComposer.caption }
       : { size: 'full', align: 'center', wrap: false };
     insertMediaBlock(type, source, mediaComposer.caption.trim(), options);
-    setMediaComposer(s => ({ ...s, url: '', uploadedSrc: '', uploadedName: '', caption: '', sideText: '' }));
+    setMediaComposer(s => ({ ...s, url: '', uploadedSrc: '', uploadedName: '', uploadedSources: [], uploadedNames: [], caption: '', sideText: '' }));
   }
   function updateBodySelection(transform) {
     const textarea = bodyRef.current;
@@ -653,19 +818,82 @@ function AdminPage() {
   function updateMediaBlock(blockIndex, patch) {
     const blocks = (form.body || '').split(/\n\s*\n/);
     const block = (blocks[blockIndex] || '').trim();
-    const media = block.match(/^\{\{(image|video|youtube):([^|}]+)((?:\|[^}]*)?)\}\}$/);
+    const media = block.match(/^\{\{(image|video|youtube|gallery):([^|}]+)((?:\|[^}]*)?)\}\}$/);
     if (!media) return;
 
     const [, type, src, rawOptions] = media;
     const currentOptions = parseMediaOptions((rawOptions || '').split('|').slice(1));
+    const nextSrc = patch.gallerySources ? patch.gallerySources.slice(0, 5) : src;
     const nextOptions = {
       ...currentOptions,
       ...patch,
     };
+    delete nextOptions.gallerySources;
     if (nextOptions.align === 'center') nextOptions.wrap = false;
 
-    blocks[blockIndex] = buildMediaToken(type, src, nextOptions);
+    blocks[blockIndex] = buildMediaToken(type, nextSrc, nextOptions);
     setForm(s => ({ ...s, body: blocks.join('\n\n') }));
+  }
+  function deleteGalleryImage(blockIndex, imageIndex) {
+    const blocks = (form.body || '').split(/\n\s*\n/);
+    const block = (blocks[blockIndex] || '').trim();
+    const media = block.match(/^\{\{gallery:([^|}]+)((?:\|[^}]*)?)\}\}$/);
+    if (!media) return;
+
+    const [, src, rawOptions] = media;
+    const sources = parseGallerySources(src).filter((_, i) => i !== imageIndex);
+    const options = parseMediaOptions((rawOptions || '').split('|').slice(1));
+    if (!sources.length) {
+      blocks.splice(blockIndex, 1);
+    } else if (sources.length === 1) {
+      blocks[blockIndex] = buildMediaToken('image', sources[0], { caption: options.caption, size: 'full', align: 'center', wrap: false });
+    } else {
+      blocks[blockIndex] = buildMediaToken('gallery', sources, { ...options, columns: Math.min(options.columns, sources.length) });
+    }
+    setForm(s => ({ ...s, body: blocks.join('\n\n') }));
+  }
+  async function addImagesToGallery(blockIndex, e) {
+    const selectedFiles = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!selectedFiles.length) return;
+
+    const blocks = (form.body || '').split(/\n\s*\n/);
+    const block = (blocks[blockIndex] || '').trim();
+    const media = block.match(/^\{\{gallery:([^|}]+)((?:\|[^}]*)?)\}\}$/);
+    if (!media) return;
+
+    const [, src, rawOptions] = media;
+    const sources = parseGallerySources(src);
+    const remainingSlots = 5 - sources.length;
+    if (remainingSlots <= 0) {
+      alert('This row already has 5 images.');
+      return;
+    }
+    const filesToAdd = selectedFiles.slice(0, remainingSlots);
+    if (selectedFiles.length > remainingSlots) {
+      alert('This row can only have 5 images. I added the first ' + remainingSlots + '.');
+    }
+    if (filesToAdd.some(file => file.type.startsWith('video/'))) {
+      alert('Video files are too large for browser storage. Please add videos by URL instead.');
+      return;
+    }
+
+    try {
+      const addedSources = [];
+      for (const f of filesToAdd) {
+        const mediaFile = f.type === 'image/gif'
+          ? f
+          : await resizeImageFile(f, { maxWidth: 1800, maxHeight: 1800, quality: 0.84 });
+        const mediaId = await window.cheerMedia.saveFile(mediaFile);
+        addedSources.push('media:' + mediaId);
+      }
+      const options = parseMediaOptions((rawOptions || '').split('|').slice(1));
+      const nextSources = sources.concat(addedSources).slice(0, 5);
+      blocks[blockIndex] = buildMediaToken('gallery', nextSources, { ...options, columns: Math.min(5, Math.max(options.columns, nextSources.length)) });
+      setForm(s => ({ ...s, body: blocks.join('\n\n') }));
+    } catch (error) {
+      alert('Could not save these images. Please try smaller images.');
+    }
   }
   function deleteMediaBlock(blockIndex) {
     if (!confirm('Delete this image from the post?')) return;
@@ -676,6 +904,7 @@ function AdminPage() {
 
   return (
     <div className="page admin-page">
+      {toast ? <div className="admin-toast" role="status" aria-live="polite">{toast}</div> : null}
       <h1>Manage posts</h1>
       <p className="lede">Add new blog entries, edit existing ones, and choose which post appears on the homepage. Everything is saved to your browser — no server, no account.</p>
 
@@ -696,7 +925,46 @@ function AdminPage() {
           <div className="field">
             <label>COVER IMAGE</label>
             <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ padding: 8 }} />
-            {form.cover && <div className="preview-thumb" style={{ backgroundImage: `url(${form.cover})` }} />}
+            {form.cover && (
+              <div className="preview-thumb">
+                <img src={form.cover} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom)} />
+              </div>
+            )}
+            {form.cover && (
+              <div className="cover-position-control">
+                <span>Adjust visible cover area</span>
+                <label>
+                  Make image bigger / smaller
+                  <input
+                    type="range"
+                    min="60"
+                    max="180"
+                    value={coverZoom}
+                    onChange={e => setForm(s => ({ ...s, coverZoom: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Move left / right
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={coverCrop.x}
+                    onChange={e => setForm(s => ({ ...s, coverPosition: setCoverCropAxis(s.coverPosition, 'x', e.target.value) }))}
+                  />
+                </label>
+                <label>
+                  Move up / down
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={coverCrop.y}
+                    onChange={e => setForm(s => ({ ...s, coverPosition: setCoverCropAxis(s.coverPosition, 'y', e.target.value) }))}
+                  />
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="field">
@@ -770,14 +1038,14 @@ function AdminPage() {
                   Text beside image
                   <textarea
                     value={mediaComposer.sideText}
-                    disabled={!mediaComposer.wrap}
+                    disabled={!mediaComposer.wrap || mediaComposer.uploadedSources.length > 1}
                     onChange={e => setMediaComposer(s => ({ ...s, sideText: e.target.value }))}
-                    placeholder={mediaComposer.wrap ? 'This paragraph will appear beside the left/right image.' : 'Choose left or right and enable text beside image first.'}
+                    placeholder={mediaComposer.uploadedSources.length > 1 ? 'Text beside image is only for single left/right images.' : mediaComposer.wrap ? 'This paragraph will appear beside the left/right image.' : 'Choose left or right and enable text beside image first.'}
                   />
                 </label>
                 <label>
                   Image size
-                  <select value={mediaComposer.size} onChange={e => setMediaComposer(s => ({ ...s, size: e.target.value }))}>
+                  <select value={mediaComposer.size} disabled={mediaComposer.uploadedSources.length > 1} onChange={e => setMediaComposer(s => ({ ...s, size: e.target.value }))}>
                     <option value="small">Small</option>
                     <option value="medium">Medium</option>
                     <option value="large">Large</option>
@@ -786,17 +1054,26 @@ function AdminPage() {
                 </label>
                 <label>
                   Position
-                  <select value={mediaComposer.align} onChange={e => setMediaComposer(s => ({ ...s, align: e.target.value, wrap: e.target.value === 'center' ? false : true }))}>
+                  <select value={mediaComposer.align} disabled={mediaComposer.uploadedSources.length > 1} onChange={e => setMediaComposer(s => ({ ...s, align: e.target.value, wrap: e.target.value === 'center' ? false : true }))}>
                     <option value="left">Left</option>
                     <option value="center">Center</option>
                     <option value="right">Right</option>
+                  </select>
+                </label>
+                <label>
+                  Images in row
+                  <select value={mediaComposer.columns} disabled={mediaComposer.uploadedSources.length < 2} onChange={e => setMediaComposer(s => ({ ...s, columns: e.target.value }))}>
+                    <option value="2">2 images</option>
+                    <option value="3">3 images</option>
+                    <option value="4">4 images</option>
+                    <option value="5">5 images</option>
                   </select>
                 </label>
                 <label className="media-composer-checkbox">
                   <input
                     type="checkbox"
                     checked={mediaComposer.wrap}
-                    disabled={mediaComposer.align === 'center'}
+                    disabled={mediaComposer.align === 'center' || mediaComposer.uploadedSources.length > 1}
                     onChange={e => setMediaComposer(s => ({ ...s, wrap: e.target.checked }))}
                   />
                   Place text beside the image
@@ -805,13 +1082,13 @@ function AdminPage() {
               <div className="media-insert-row">
                 <label className="btn ghost">
                   Upload image / GIF
-                  <input type="file" accept="image/*" onChange={stageBodyMedia} />
+                  <input type="file" accept="image/*" multiple onChange={stageBodyMedia} />
                 </label>
                 {mediaComposer.uploadedName ? (
                   <span className="media-selected">Selected: {mediaComposer.uploadedName}</span>
                 ) : null}
-                <button type="button" className="btn dark" onClick={addComposerMedia}>Add image</button>
-                <span>Upload or paste a URL, adjust the settings above, then click Add image. Videos should be added by URL.</span>
+                <button type="button" className="btn dark" onClick={addComposerMedia}>{mediaComposer.uploadedSources.length > 1 ? 'Add image row' : 'Add image'}</button>
+                <span>Upload 1 image/GIF, or select 2–5 images together to place them on one line. Videos should be added by URL.</span>
               </div>
             </div>
           </div>
@@ -841,11 +1118,11 @@ function AdminPage() {
               <button type="button" onClick={() => setShowPreview(false)}>Close</button>
             </div>
             <article className="post-page admin-preview-post">
-              {form.cover ? <div className="post-cover"><img src={form.cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }} /></div> : null}
+              {form.cover ? <div className="post-cover"><img src={form.cover} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
               <h1>{form.title || 'Untitled draft'}</h1>
               <div className="meta">{form.status === 'product' ? 'PRODUCT · ' : ''}{formatDate(form.date)} · {form.author || 'The Cheervinsky Studio'}{form.pinned && form.published && form.status !== 'product' ? ' · PINNED' : ''}{form.includeInCarousel && form.status === 'product' ? ' · CAROUSEL' : ''}</div>
               <div className="post-body">
-                {form.body ? renderPostBody(form.body, { onMediaChange: updateMediaBlock, onMediaDelete: deleteMediaBlock }) : <p style={{ color: 'var(--ink-3)' }}>Start writing to preview the post body.</p>}
+                {form.body ? renderPostBody(form.body, { onMediaChange: updateMediaBlock, onMediaDelete: deleteMediaBlock, onGalleryImageDelete: deleteGalleryImage, onGalleryAdd: addImagesToGallery }) : <p style={{ color: 'var(--ink-3)' }}>Start writing to preview the post body.</p>}
               </div>
               {form.status === 'product' && (form.appStore || form.googlePlay) ? (
                 <div className="stores product-detail-stores">
@@ -860,46 +1137,63 @@ function AdminPage() {
         <div className="admin-list">
           <div className="admin-list-header">
             <h2>All posts ({filteredPosts.length})</h2>
-            <div className="admin-filter" aria-label="Filter posts">
-              <button type="button" className={postFilter === 'all' ? 'active' : ''} onClick={() => setPostFilter('all')}>All</button>
-              <button type="button" className={postFilter === 'blog' ? 'active' : ''} onClick={() => setPostFilter('blog')}>Blog</button>
-              <button type="button" className={postFilter === 'product' ? 'active' : ''} onClick={() => setPostFilter('product')}>Products</button>
+            <div className="admin-list-tools">
+              <label className="admin-search">
+                <span>Search title</span>
+                <input
+                  type="search"
+                  value={postSearch}
+                  onChange={e => setPostSearch(e.target.value)}
+                  placeholder="Type a post title..."
+                />
+              </label>
+              <div className="admin-filter" aria-label="Filter posts">
+                <button type="button" className={postFilter === 'all' ? 'active' : ''} onClick={() => setPostFilter('all')}>All</button>
+                <button type="button" className={postFilter === 'blog' ? 'active' : ''} onClick={() => setPostFilter('blog')}>Blog</button>
+                <button type="button" className={postFilter === 'product' ? 'active' : ''} onClick={() => setPostFilter('product')}>Products</button>
+              </div>
             </div>
           </div>
-          {filteredPosts.length === 0 && <p style={{ color: 'var(--ink-3)' }}>Nothing here yet.</p>}
-          {filteredPosts.map(p => (
-            <div key={p.id} className={'admin-post-row ' + (p.pinned ? 'pinned ' : '') + (p.published === false ? 'unpublished' : '')}>
-              <div className="thumb" style={p.cover ? { backgroundImage: `url(${p.cover})` } : {}} />
-              <div className="info">
-                <div className="admin-post-meta">
-                  <span className={p.published === false ? 'status unpublished' : 'status published'}>{p.published === false ? 'UNPUBLISHED' : 'PUBLISHED'}</span>
-                  <span className={p.status === 'product' ? 'status product' : 'status blog'}>{p.status === 'product' ? 'PRODUCT' : 'BLOG'}</span>
-                  {p.status === 'product' && p.includeInCarousel && <span className="status carousel">CAROUSEL</span>}
-                  {p.pinned && <span className="status pinned">PINNED</span>}
+          {filteredPosts.length === 0 && <p style={{ color: 'var(--ink-3)' }}>{postSearch.trim() ? 'No posts match that title.' : 'Nothing here yet.'}</p>}
+          {filteredPosts.map(p => {
+            const rowTitle = (p.title || '').trim() || 'Untitled post';
+            const rowExcerpt = (p.excerpt || '').trim() || 'No excerpt yet.';
+            return (
+              <div key={p.id} className={'admin-post-row ' + (p.pinned ? 'pinned ' : '') + (p.published === false ? 'unpublished' : '')}>
+                <div className="thumb" style={p.cover ? { backgroundImage: `url(${p.cover})`, backgroundPosition: getCoverPosition(p.coverPosition) } : {}}>
+                  {!p.cover ? <span>{rowTitle[0]}</span> : null}
                 </div>
-                <h4>{p.title}</h4>
-                <p className="excerpt">{p.excerpt}</p>
+                <div className="info">
+                  <div className="admin-post-meta">
+                    <span className={p.published === false ? 'status unpublished' : 'status published'}>{p.published === false ? 'UNPUBLISHED' : 'PUBLISHED'}</span>
+                    <span className={p.status === 'product' ? 'status product' : 'status blog'}>{p.status === 'product' ? 'PRODUCT' : 'BLOG'}</span>
+                    {p.status === 'product' && p.includeInCarousel && <span className="status carousel-status">CAROUSEL</span>}
+                    {p.pinned && <span className="status pinned">PINNED</span>}
+                  </div>
+                  <h4>{rowTitle}</h4>
+                  <p className="excerpt">{rowExcerpt}</p>
+                </div>
+                <div className="actions">
+                  <button
+                    className={'icon-btn pin ' + (p.pinned ? 'active' : '')}
+                    onClick={() => window.cheerStore.setPinned(p.pinned ? '' : p.id)}
+                    aria-label="Pin to homepage"
+                    title={p.pinned ? 'Unpin' : 'Pin to homepage'}
+                    disabled={p.published === false || p.status === 'product'}
+                  ><IconPin /></button>
+                  <button className="admin-action-btn" onClick={() => startEdit(p)}>Edit</button>
+                  <button
+                    className="admin-action-btn"
+                    onClick={() => {
+                      const willPublish = p.published === false;
+                      window.cheerStore.updatePost(p.id, { published: willPublish, pinned: willPublish ? p.pinned : false });
+                    }}
+                  >{p.published === false ? 'Publish' : 'Unpublish'}</button>
+                  <button className="icon-btn danger" onClick={() => { if (confirm('Delete this post?')) window.cheerStore.deletePost(p.id); }} aria-label="Delete" title="Delete"><IconTrash /></button>
+                </div>
               </div>
-              <div className="actions">
-                <button
-                  className={'icon-btn pin ' + (p.pinned ? 'active' : '')}
-                  onClick={() => window.cheerStore.setPinned(p.pinned ? '' : p.id)}
-                  aria-label="Pin to homepage"
-                  title={p.pinned ? 'Unpin' : 'Pin to homepage'}
-                  disabled={p.published === false || p.status === 'product'}
-                ><IconPin /></button>
-                <button className="admin-action-btn" onClick={() => startEdit(p)}>Edit</button>
-                <button
-                  className="admin-action-btn"
-                  onClick={() => {
-                    const willPublish = p.published === false;
-                    window.cheerStore.updatePost(p.id, { published: willPublish, pinned: willPublish ? p.pinned : false });
-                  }}
-                >{p.published === false ? 'Publish' : 'Unpublish'}</button>
-                <button className="icon-btn danger" onClick={() => { if (confirm('Delete this post?')) window.cheerStore.deletePost(p.id); }} aria-label="Delete" title="Delete"><IconTrash /></button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           <button className="btn ghost" style={{ marginTop: 16 }} onClick={() => { if (confirm('Reset all posts and products to defaults?')) window.cheerStore.reset(); }}>Reset to defaults</button>
         </div>
       </div>

@@ -12,6 +12,8 @@
       const posts = (parsed.posts || clone(D.posts)).map(p => ({
         published: true,
         status: 'blog',
+        coverPosition: '50% 0%',
+        coverZoom: 100,
         ...p,
       }));
       // Backfill missing keys
@@ -53,6 +55,8 @@
         title: post.title || 'Untitled',
         excerpt: post.excerpt || '',
         cover: post.cover || '',
+        coverPosition: post.coverPosition || '50% 0%',
+        coverZoom: post.coverZoom || 100,
         productIcon: post.productIcon || '',
         appStore: post.appStore || '',
         googlePlay: post.googlePlay || '',

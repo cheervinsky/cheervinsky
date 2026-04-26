@@ -1,64 +1,7 @@
 // Default seed data for products and blog posts.
 // Stored in localStorage and editable via the Admin page.
 window.CHEERVINSKY_DEFAULTS = {
-  products: [
-    {
-      id: 'calmloop',
-      name: 'Calmloop',
-      title: 'Calmloop: Noise EMDR Breathing',
-      tagline: 'A library of soothing sounds & noise for sleep, focus, and quiet.',
-      description: 'Pink noise, red noise, cicada nights — Calmloop is a small, beautifully tuned library of audio for getting through the day. Slip into Zen Mode, set a timer, breathe.',
-      hero: 'assets/iphone-mockup.png',
-      appStore: '#',
-      googlePlay: '#',
-      eyebrow: 'WELLNESS',
-      monogram: 'C'
-    },
-    {
-      id: 'kiln',
-      name: 'Kiln',
-      tagline: 'A slow-burning timer for deep, undistracted work.',
-      description: 'Kiln is a timer. That\'s mostly it. Set a session, watch the ember slowly fade, and come back when it\'s out. No streaks, no badges — just a quiet hour to yourself.',
-      hero: 'assets/iphone-mockup.png',
-      appStore: '#',
-      googlePlay: '#',
-      eyebrow: 'FOCUS',
-      monogram: 'K'
-    },
-    {
-      id: 'mira',
-      name: 'Mira',
-      tagline: 'A gentle journal for noticing how you actually feel.',
-      description: 'Three minutes a day. A small mood, a few words, the weather outside. Mira draws out patterns over weeks and months — without ever asking you to perform wellness.',
-      hero: 'assets/iphone-mockup.png',
-      appStore: '#',
-      googlePlay: '#',
-      eyebrow: 'SELF-UNDERSTANDING',
-      monogram: 'M'
-    },
-    {
-      id: 'sprout',
-      name: 'Sprout',
-      tagline: 'Tiny daily habits that grow into something.',
-      description: 'Sprout keeps your streak honest. Skip a day — it still loves you. Keep at it for a season and you\'ll have built something quietly remarkable.',
-      hero: 'assets/iphone-mockup.png',
-      appStore: '#',
-      googlePlay: '#',
-      eyebrow: 'HABITS',
-      monogram: 'S'
-    },
-    {
-      id: 'confetti',
-      name: 'Confetti',
-      tagline: 'A grab-bag of small delights for everyday decisions.',
-      description: 'A tip calculator. A coin flip. A dice roller. A decision spinner. Five tools that other apps would charge you for, all together, all yours, all a little playful.',
-      hero: 'assets/iphone-mockup.png',
-      appStore: '#',
-      googlePlay: '#',
-      eyebrow: 'PLAYFUL UTILITY',
-      monogram: 'C'
-    }
-  ],
+  products: [],
   posts: [
     {
       id: 'neurodream-features',

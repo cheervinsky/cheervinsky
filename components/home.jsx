@@ -19,10 +19,12 @@ function Carousel() {
       monogram: p.title ? p.title[0] : 'P',
       detailHref: '#post/' + p.id,
     }));
-  const products = productPosts.length ? productPosts : store.products;
+  const products = productPosts;
   const [idx, setIdx] = useState2(0);
   const [phase, setPhase] = useState2('in'); // 'in' | 'out'
   const timerRef = useRef2(null);
+
+  if (!products.length) return null;
 
   const advance = (next) => {
     setPhase('out');
@@ -48,6 +50,7 @@ function Carousel() {
   const product = products[idx];
   const phoneClass = phase === 'out' ? 'exiting' : phase === 'enter' ? 'entering' : '';
   const glassClass = phase === 'out' ? ' exiting' : phase === 'enter' ? ' entering' : '';
+  const loopLineClass = phase === 'in' ? 'carousel-loop-line' : 'carousel-loop-line visible';
 
   return (
     <section className="section">
@@ -96,6 +99,11 @@ function Carousel() {
               )}
             </div>
           </div>
+        </div>
+        <div className={loopLineClass} aria-hidden="true">
+          <svg viewBox="0 0 120 110" preserveAspectRatio="xMidYMid meet">
+            <path d="M60 94 C34 73, 18 56, 18 38 C18 23, 28 14, 41 14 C50 14, 56 20, 60 28 C64 20, 70 14, 79 14 C92 14, 102 23, 102 38 C102 56, 86 73, 60 94 Z" />
+          </svg>
         </div>
       </div>
       <div className="carousel-controls">
