@@ -73,6 +73,7 @@ function App() {
   else if (route === 'blog') body = <BlogPage />;
   else if (route === 'post') body = <PostPage id={param} />;
   else if (route === 'products') body = <ProductsPage />;
+  else if (route === 'product') body = <ProductDetailPage id={param} />;
   else if (route === 'contacts') body = <ContactsPage />;
   else if (route === 'admin') body = isAdminSession ? <AdminPage /> : <BlogPage />;
   else body = <HomePage />;

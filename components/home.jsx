@@ -3,7 +3,23 @@ const { useEffect: useEffect2, useState: useState2, useRef: useRef2 } = React;
 
 function Carousel() {
   const store = useStore();
-  const products = store.products;
+  const productPosts = store.posts
+    .filter(p => p.published !== false && p.status === 'product' && p.includeInCarousel)
+    .map(p => ({
+      id: p.id,
+      name: p.title,
+      title: p.title,
+      tagline: p.excerpt,
+      description: p.excerpt || p.body,
+      hero: p.cover || 'assets/iphone-mockup.png',
+      productIcon: p.productIcon || '',
+      appStore: p.appStore || '',
+      googlePlay: p.googlePlay || '',
+      eyebrow: 'PRODUCT',
+      monogram: p.title ? p.title[0] : 'P',
+      detailHref: '#post/' + p.id,
+    }));
+  const products = productPosts.length ? productPosts : store.products;
   const [idx, setIdx] = useState2(0);
   const [phase, setPhase] = useState2('in'); // 'in' | 'out'
   const timerRef = useRef2(null);
@@ -14,7 +30,7 @@ function Carousel() {
       setIdx((next + products.length) % products.length);
       setPhase('enter');
       requestAnimationFrame(() => requestAnimationFrame(() => setPhase('in')));
-    }, 380);
+    }, 1150);
   };
 
   useEffect2(() => {
@@ -31,6 +47,7 @@ function Carousel() {
 
   const product = products[idx];
   const phoneClass = phase === 'out' ? 'exiting' : phase === 'enter' ? 'entering' : '';
+  const glassClass = phase === 'out' ? ' exiting' : phase === 'enter' ? ' entering' : '';
 
   return (
     <section className="section">
@@ -39,17 +56,44 @@ function Carousel() {
           <div className="phone-shadow" />
           <PhoneMockup src={product.hero} alt={product.name} className={phoneClass} />
         </div>
-        <div className="glass carousel-glass" key={product.id} style={{ animation: 'page-fade 600ms var(--ease-out-soft)' }}>
+        <div className={'glass carousel-glass' + glassClass}>
           <div className="carousel-glass-content">
             <p className="glass-eyebrow">{product.eyebrow || 'CHEERVINSKY APP'}</p>
             <h2>
-              <span className="ink-mark" style={{ color: 'var(--honey-deep)', fontStyle: 'italic' }}>{product.monogram || product.name[0]}</span>
-              {product.name.slice(1)}
+              {product.detailHref ? (
+                <a href={product.detailHref} className="carousel-title-link">
+                  {product.productIcon ? (
+                    <img className="carousel-title-icon" src={product.productIcon} alt="" />
+                  ) : (
+                    <span className="ink-mark" style={{ color: 'var(--honey-deep)', fontStyle: 'italic' }}>{product.monogram || product.name[0]}</span>
+                  )}
+                  {product.productIcon ? product.name : product.name.slice(1)}
+                </a>
+              ) : (
+                <>
+                  <span className="ink-mark" style={{ color: 'var(--honey-deep)', fontStyle: 'italic' }}>{product.monogram || product.name[0]}</span>
+                  {product.name.slice(1)}
+                </>
+              )}
             </h2>
-            <p>{product.description}</p>
+            {product.detailHref ? (
+              <a href={product.detailHref} className="carousel-description-link">{product.description}</a>
+            ) : (
+              <p>{product.description}</p>
+            )}
             <div className="cta-row">
-              <StoreButton kind="google" href={product.googlePlay} />
-              <StoreButton kind="apple" href={product.appStore} />
+              {product.detailHref ? (
+                <>
+                  {product.googlePlay ? <StoreButton kind="google" href={product.googlePlay} /> : null}
+                  {product.appStore ? <StoreButton kind="apple" href={product.appStore} /> : null}
+                  <a href={product.detailHref} className="btn dark">Read about product</a>
+                </>
+              ) : (
+                <>
+                  <StoreButton kind="google" href={product.googlePlay} />
+                  <StoreButton kind="apple" href={product.appStore} />
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -69,7 +113,8 @@ function Carousel() {
 
 function PinnedPost() {
   const store = useStore();
-  const post = store.posts.find(p => p.pinned) || store.posts[0];
+  const publishedPosts = store.posts.filter(p => p.published !== false && p.status !== 'product');
+  const post = publishedPosts.find(p => p.pinned) || publishedPosts[0];
   if (!post) return null;
   return (
     <section className="section">

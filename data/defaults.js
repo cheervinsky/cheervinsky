@@ -5,6 +5,7 @@ window.CHEERVINSKY_DEFAULTS = {
     {
       id: 'calmloop',
       name: 'Calmloop',
+      title: 'Calmloop: Noise EMDR Breathing',
       tagline: 'A library of soothing sounds & noise for sleep, focus, and quiet.',
       description: 'Pink noise, red noise, cicada nights — Calmloop is a small, beautifully tuned library of audio for getting through the day. Slip into Zen Mode, set a timer, breathe.',
       hero: 'assets/iphone-mockup.png',
