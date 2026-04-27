@@ -46,7 +46,6 @@ function ParallaxOrbs() {
 function App() {
   const { route, param, hidden } = useRoute();
   const isAdminSession = sessionStorage.getItem('cheer_admin_session') === '1';
-  const ADMIN_PASSCODE = 'cheer-admin-2026';
 
   React.useEffect(() => {
     // Clear any previous persistent admin flag; admin is session-only.
@@ -54,12 +53,45 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    const hasHiddenAdminUnlock = hidden === 'admin/' + ADMIN_PASSCODE;
-
-    if (hasHiddenAdminUnlock) {
+    // The unique admin URL embeds your GitHub PAT directly:
+    //   index.html#admin/<your-PAT>
+    // Anyone without the right token can still load #admin (it just shows the
+    // blog), but writes will fail at the GitHub API. The URL itself IS the
+    // secret — bookmark it, don't share it.
+    if (route === 'admin' && param) {
+      const token = param;
       sessionStorage.setItem('cheer_admin_session', '1');
+      sessionStorage.setItem('cheer_admin_token', token);
+      if (window.cheerSync) {
+        window.cheerSync.setToken(token);
+        window.dispatchEvent(new CustomEvent('cheer-admin-token-changed'));
+      }
       if (window.location.hash !== '#admin') window.location.hash = '#admin';
       return;
+    }
+    // Legacy support for #admin#<token> — token in `hidden`.
+    if (hidden && hidden.startsWith('admin/')) {
+      const token = hidden.slice('admin/'.length);
+      if (token) {
+        sessionStorage.setItem('cheer_admin_session', '1');
+        sessionStorage.setItem('cheer_admin_token', token);
+        if (window.cheerSync) {
+          window.cheerSync.setToken(token);
+          window.dispatchEvent(new CustomEvent('cheer-admin-token-changed'));
+        }
+        if (window.location.hash !== '#admin') window.location.hash = '#admin';
+        return;
+      }
+    }
+
+    // Re-hydrate the in-memory sync token from sessionStorage on subsequent
+    // navigations within the admin session.
+    if (isAdminSession && window.cheerSync && !window.cheerSync.hasToken()) {
+      const stashed = sessionStorage.getItem('cheer_admin_token') || '';
+      if (stashed) {
+        window.cheerSync.setToken(stashed);
+        window.dispatchEvent(new CustomEvent('cheer-admin-token-changed'));
+      }
     }
 
     if (route !== 'admin') return;

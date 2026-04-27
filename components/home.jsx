@@ -11,8 +11,9 @@ function Carousel() {
       title: p.title,
       tagline: p.excerpt,
       description: p.excerpt || p.body,
-      hero: p.cover || 'assets/iphone-mockup.png',
+      hero: p.homeImage || p.cover || 'assets/iphone-mockup.png',
       productIcon: p.productIcon || '',
+      productIconSize: Math.max(18, Math.min(60, parseInt(p.productIconSize, 10) || 34)),
       appStore: p.appStore || '',
       googlePlay: p.googlePlay || '',
       eyebrow: 'PRODUCT',
@@ -66,7 +67,12 @@ function Carousel() {
               {product.detailHref ? (
                 <a href={product.detailHref} className="carousel-title-link">
                   {product.productIcon ? (
-                    <img className="carousel-title-icon" src={product.productIcon} alt="" />
+                    <img
+                      className="carousel-title-icon"
+                      src={product.productIcon}
+                      alt=""
+                      style={{ width: product.productIconSize, height: product.productIconSize }}
+                    />
                   ) : (
                     <span className="ink-mark" style={{ color: 'var(--honey-deep)', fontStyle: 'italic' }}>{product.monogram || product.name[0]}</span>
                   )}
@@ -130,7 +136,7 @@ function PinnedPost() {
       <div className="pinned-blog">
         <div className="phone-stage pinned-phone-stage">
           <div className="phone-shadow" />
-          <PhoneMockup src={post.cover || 'assets/iphone-mockup.png'} alt={post.title} className="pinned-phone" />
+          <PhoneMockup src={post.homeImage || post.cover || 'assets/iphone-mockup.png'} alt={post.title} className="pinned-phone" />
         </div>
         <div className="glass pinned-glass">
           <div className="carousel-glass-content pinned-glass-content">

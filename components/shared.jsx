@@ -248,17 +248,64 @@ function CurvyDivider() {
   );
 }
 
+// --- Image reference resolver ---
+// Posts can reference images in four ways:
+//   data:...            -> inline base64 (legacy)
+//   http(s)://...       -> external URL (use directly)
+//   ghmedia/<filename>  -> committed to the GitHub repo's data/media/ folder
+//   media:<id>          -> IndexedDB blob (legacy; resolved async by callers)
+//   <anything else>     -> treated as a path relative to the page (e.g. 'assets/foo.png')
+function resolveImageRef(ref) {
+  if (!ref || typeof ref !== 'string') return '';
+  if (ref.startsWith('ghmedia/') && window.cheerSync && window.cheerSync.rawUrl) {
+    return window.cheerSync.rawUrl(ref) || '';
+  }
+  return ref;
+}
+
 // --- Loose Phone-mockup component (uses uploaded mockup as a frame) ---
 // We build the phone by composing the mockup PNG + an inset that holds an image.
 function PhoneMockup({ src, alt = '', className = '', innerStyle = {} }) {
+  const [resolvedSrc, setResolvedSrc] = useState(() => src && src.startsWith('media:') ? '' : resolveImageRef(src));
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl = '';
+
+    if (!src || !src.startsWith('media:')) {
+      setResolvedSrc(resolveImageRef(src));
+      return () => {
+        active = false;
+      };
+    }
+
+    const mediaId = src.slice(6);
+    window.cheerMedia.getUrl(mediaId).then(url => {
+      if (!active) {
+        if (url) URL.revokeObjectURL(url);
+        return;
+      }
+      objectUrl = url;
+      setResolvedSrc(url || '');
+    }).catch(() => {
+      if (!active) return;
+      setResolvedSrc('');
+    });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
   // The iPhone mockup PNG already has a transparent screen area;
   // we render the screen image *behind* the frame using absolute positioning.
   return (
     <div className={'phone-frame ' + className} style={{ position: 'relative', height: '100%', aspectRatio: '0.49' }}>
       {/* Screen image */}
-      {src ? (
+      {resolvedSrc ? (
         <img
-          src={src}
+          src={resolvedSrc}
           alt={alt}
           style={{
             position: 'absolute',
@@ -282,7 +329,7 @@ function PhoneMockup({ src, alt = '', className = '', innerStyle = {} }) {
 }
 
 Object.assign(window, {
-  parseHash, navigate, useRoute, useStore,
+  parseHash, navigate, useRoute, useStore, resolveImageRef,
   CrowLogo, StoreButton, Header, Footer, LiquidGlassDefs, CurvyDivider, PhoneMockup,
   IconYouTube, IconInstagram, IconArrow, IconPin, IconTrash, IconEdit,
 });

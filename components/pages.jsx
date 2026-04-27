@@ -46,10 +46,13 @@ function BlogPage() {
         )}
       </div>
       <div className="blog-grid">
-        {visiblePosts.map(p => (
+        {visiblePosts.map(p => {
+          const previewSrc = p.homeImage || p.cover;
+          const usingCover = !p.homeImage && !!p.cover;
+          return (
           <a key={p.id} className="post-card" href={'#post/' + p.id}>
             <div className="post-cover">
-              {p.cover ? <img src={p.cover} alt="" style={getCoverImageStyle(p.coverPosition, p.coverZoom)} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
+              {previewSrc ? <img src={resolveImageRef(previewSrc)} alt="" style={usingCover ? getCoverImageStyle(p.coverPosition, p.coverZoom) : { width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
             </div>
             <div className="body">
               <div className="meta">
@@ -63,7 +66,8 @@ function BlogPage() {
               <span className="read-more">Read more →</span>
             </div>
           </a>
-        ))}
+          );
+        })}
       </div>
       <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Blog pagination bottom" />
     </div>
@@ -282,10 +286,28 @@ function renderPostBody(body, editor = {}) {
               {gallerySources.map((source, galleryIndex) => {
                 const galleryMediaId = source.startsWith('media:') ? source.slice(6) : '';
                 return (
-                  <div className="post-gallery-item" key={galleryIndex}>
+                  <div
+                    className={'post-gallery-item' + (canEdit ? ' draggable' : '')}
+                    key={galleryIndex}
+                    draggable={canEdit}
+                    onDragStart={canEdit ? e => {
+                      e.dataTransfer.setData('text/plain', String(galleryIndex));
+                      e.dataTransfer.effectAllowed = 'move';
+                    } : undefined}
+                    onDragOver={canEdit ? e => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'move';
+                    } : undefined}
+                    onDrop={canEdit ? e => {
+                      e.preventDefault();
+                      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                      if (!isNaN(fromIndex)) editor.onGalleryImageMove(i, fromIndex, galleryIndex);
+                    } : undefined}
+                    title={canEdit ? 'Drag to reorder this image' : undefined}
+                  >
                     {galleryMediaId
                       ? <MediaAsset id={galleryMediaId} alt={options.caption || ''} />
-                      : <img src={source} alt={options.caption || ''} />}
+                      : <img src={resolveImageRef(source)} alt={options.caption || ''} />}
                     {canEdit ? (
                       <button
                         type="button"
@@ -310,11 +332,11 @@ function renderPostBody(body, editor = {}) {
               />
             </div>
           ) : type === 'video' ? (
-            <video src={cleanSrc} controls playsInline preload="metadata" />
+            <video src={resolveImageRef(cleanSrc)} controls playsInline preload="metadata" />
           ) : mediaId ? (
             <MediaAsset id={mediaId} alt={options.caption || ''} />
           ) : (
-            <img src={cleanSrc} alt={options.caption || ''} />
+            <img src={resolveImageRef(cleanSrc)} alt={options.caption || ''} />
           )}
           {options.caption ? <figcaption>{options.caption}</figcaption> : null}
           {canEdit && type === 'gallery' ? (
@@ -436,7 +458,7 @@ function PostPage({ id }) {
     <div className="page post-page">
       <article className="detail-content-panel">
         <a href={isProductPost ? '#products' : '#blog'} className="back-link">← Back to {isProductPost ? 'products' : 'blog'}</a>
-        {post.cover ? <div className="post-cover"><img src={post.cover} alt="" style={getCoverImageStyle(post.coverPosition, post.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
+        {post.cover ? <div className="post-cover"><img src={resolveImageRef(post.cover)} alt="" style={getCoverImageStyle(post.coverPosition, post.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
         <h1>{post.title}</h1>
         <div className="meta">{isProductPost ? 'PRODUCT · ' : ''}{formatDate(post.date)} · {post.author}{post.pinned ? ' · PINNED' : ''}</div>
         <div className="post-body">{blocks}</div>
@@ -509,10 +531,13 @@ function ProductsPage() {
         )}
       </div>
       <div className="products-grid">
-        {visibleProducts.map(p => (
+        {visibleProducts.map(p => {
+          const previewSrc = p.homeImage || p.cover;
+          const usingCover = !p.homeImage && !!p.cover;
+          return (
           <a key={p.id} className="product-card product-post-card" href={'#post/' + p.id}>
             <div className="post-cover product-post-cover">
-              {p.cover ? <img src={p.cover} alt="" style={getCoverImageStyle(p.coverPosition, p.coverZoom)} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
+              {previewSrc ? <img src={resolveImageRef(previewSrc)} alt="" style={usingCover ? getCoverImageStyle(p.coverPosition, p.coverZoom) : { width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', fontFamily: "'Vollkorn SC', serif", fontSize: 48, color: 'rgba(0,0,0,0.2)' }}>{p.title[0]}</div>}
             </div>
             <p style={{ fontFamily: "'Vollkorn SC', serif", fontSize: 12, letterSpacing: '0.16em', color: 'var(--honey-deep)', margin: '0 0 4px' }}>PRODUCT</p>
             <h3>{p.title}</h3>
@@ -525,7 +550,8 @@ function ProductsPage() {
             ) : null}
             <span className="read-more">Read about product →</span>
           </a>
-        ))}
+          );
+        })}
       </div>
       <PaginationControls currentPage={currentPage} totalPages={totalPages} onPageChange={setPage} label="Products pagination bottom" />
     </div>
@@ -612,7 +638,7 @@ function AdminPage() {
   const store = useStore();
   const posts = window.cheerStore.getPosts();
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, homeImage: '', productIcon: '', productIconSize: 34, appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
   const [showPreview, setShowPreview] = useState(false);
   const [postFilter, setPostFilter] = useState('all');
   const [postSearch, setPostSearch] = useState('');
@@ -628,20 +654,61 @@ function AdminPage() {
   });
   const coverCrop = getCoverCrop(form.coverPosition);
   const coverZoom = getCoverZoom(form.coverZoom);
+  const productIconSize = Math.max(18, Math.min(60, parseInt(form.productIconSize, 10) || 34));
 
   function showAdminToast(message) {
     setToast(message);
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(''), 3200);
   }
+
+  // Surface GitHub sync results as toasts so the admin always knows whether
+  // a save also reached the repo.
+  useEffect(() => {
+    function onRemoteSync(e) {
+      const detail = e && e.detail;
+      if (!detail) return;
+      if (detail.ok) {
+        if (detail.message) showAdminToast(detail.message);
+      } else {
+        showAdminToast('GitHub sync failed: ' + (detail.message || 'unknown error'));
+      }
+    }
+    window.addEventListener('cheer-store-remote-sync', onRemoteSync);
+    return () => window.removeEventListener('cheer-store-remote-sync', onRemoteSync);
+  }, []);
+
+  function copyAdminLink() {
+    const token = (window.cheerSync && window.cheerSync.getToken && window.cheerSync.getToken()) || '';
+    if (!token) {
+      alert('No admin token loaded. Open the site with #admin/<your-token> to enable saving to GitHub.');
+      return;
+    }
+    const base = window.location.href.split('#')[0];
+    const link = base + '#admin/' + token;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(
+        () => showAdminToast('Secret admin link copied to clipboard.'),
+        () => prompt('Copy your secret admin link:', link)
+      );
+    } else {
+      prompt('Copy your secret admin link:', link);
+    }
+  }
+  function manualResync() {
+    if (window.cheerStore && window.cheerStore.refreshFromRemote) {
+      window.cheerStore.refreshFromRemote().then(() => showAdminToast('Reloaded from GitHub.'));
+    }
+  }
+  const syncOn = !!(window.cheerSync && window.cheerSync.hasToken && window.cheerSync.hasToken());
   function reset() {
     setEditingId(null);
-    setForm({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, productIcon: '', appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
+    setForm({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, homeImage: '', productIcon: '', productIconSize: 34, appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
     setShowPreview(false);
   }
   function startEdit(p) {
     setEditingId(p.id);
-    setForm({ title: p.title, excerpt: p.excerpt, cover: p.cover, coverPosition: getCoverPosition(p.coverPosition), coverZoom: getCoverZoom(p.coverZoom), productIcon: p.productIcon || '', appStore: p.appStore || '', googlePlay: p.googlePlay || '', includeInCarousel: !!p.includeInCarousel, author: p.author, body: p.body, pinned: !!p.pinned, published: p.published !== false, status: p.status === 'product' ? 'product' : 'blog', date: p.date });
+    setForm({ title: p.title, excerpt: p.excerpt, cover: p.cover, coverPosition: getCoverPosition(p.coverPosition), coverZoom: getCoverZoom(p.coverZoom), homeImage: p.homeImage || '', productIcon: p.productIcon || '', productIconSize: p.productIconSize || 34, appStore: p.appStore || '', googlePlay: p.googlePlay || '', includeInCarousel: !!p.includeInCarousel, author: p.author, body: p.body, pinned: !!p.pinned, published: p.published !== false, status: p.status === 'product' ? 'product' : 'blog', date: p.date });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function savePost(publishedOverride = form.published) {
@@ -678,11 +745,44 @@ function AdminPage() {
       alert('Could not resize this cover image. Please try another image.');
     }
   }
+  async function onHomeImageFile(e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+      const resized = await resizeImageFile(f, {
+        maxWidth: 1200,
+        maxHeight: 1800,
+        quality: 0.84,
+        mimeType: f.type === 'image/png' ? 'image/png' : 'image/jpeg',
+      });
+      const mediaId = await window.cheerMedia.saveFile(resized);
+      const nextHomeImage = 'media:' + mediaId;
+      setForm(s => ({ ...s, homeImage: nextHomeImage }));
+      if (editingId) {
+        const saved = window.cheerStore.updatePost(editingId, { homeImage: nextHomeImage });
+        if (saved) showAdminToast('Home page preview image updated.');
+      }
+    } catch (error) {
+      alert('Could not resize this home page image. Please try another image.');
+    }
+  }
+  function removeHomeImage() {
+    setForm(s => ({ ...s, homeImage: '' }));
+    if (editingId) {
+      const saved = window.cheerStore.updatePost(editingId, { homeImage: '' });
+      if (saved) showAdminToast('Home page preview image removed.');
+    }
+  }
   async function onProductIconFile(e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      const resized = await resizeImageFile(f, { maxWidth: 180, maxHeight: 180, quality: 0.86 });
+      const resized = await resizeImageFile(f, {
+        maxWidth: 180,
+        maxHeight: 180,
+        quality: 0.86,
+        mimeType: f.type === 'image/png' ? 'image/png' : 'image/jpeg',
+      });
       const reader = new FileReader();
       reader.onload = () => setForm(s => ({ ...s, productIcon: reader.result }));
       reader.readAsDataURL(resized);
@@ -852,6 +952,23 @@ function AdminPage() {
     }
     setForm(s => ({ ...s, body: blocks.join('\n\n') }));
   }
+  function moveGalleryImage(blockIndex, fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    const blocks = (form.body || '').split(/\n\s*\n/);
+    const block = (blocks[blockIndex] || '').trim();
+    const media = block.match(/^\{\{gallery:([^|}]+)((?:\|[^}]*)?)\}\}$/);
+    if (!media) return;
+
+    const [, src, rawOptions] = media;
+    const sources = parseGallerySources(src);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= sources.length || toIndex >= sources.length) return;
+
+    const [movedSource] = sources.splice(fromIndex, 1);
+    sources.splice(toIndex, 0, movedSource);
+    const options = parseMediaOptions((rawOptions || '').split('|').slice(1));
+    blocks[blockIndex] = buildMediaToken('gallery', sources, options);
+    setForm(s => ({ ...s, body: blocks.join('\n\n') }));
+  }
   async function addImagesToGallery(blockIndex, e) {
     const selectedFiles = Array.from(e.target.files || []);
     e.target.value = '';
@@ -901,12 +1018,53 @@ function AdminPage() {
     blocks.splice(blockIndex, 1);
     setForm(s => ({ ...s, body: blocks.join('\n\n') }));
   }
+  function exportProjectData() {
+    const payload = window.cheerStore.exportData();
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'cheervinsky-data.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    showAdminToast('Data exported.');
+  }
+  function importProjectData(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(String(reader.result || ''));
+        const ok = window.cheerStore.importData(payload);
+        if (!ok) throw new Error('Import failed');
+        showAdminToast('Data imported successfully.');
+      } catch (error) {
+        alert('Could not import this file. Please choose a valid cheervinsky-data.json backup.');
+      }
+    };
+    reader.readAsText(file);
+  }
 
   return (
     <div className="page admin-page">
       {toast ? <div className="admin-toast" role="status" aria-live="polite">{toast}</div> : null}
       <h1>Manage posts</h1>
-      <p className="lede">Add new blog entries, edit existing ones, and choose which post appears on the homepage. Everything is saved to your browser — no server, no account.</p>
+      <p className="lede">
+        Add new blog entries, edit existing ones, and choose which post appears on the homepage.
+        {' '}
+        {syncOn
+          ? 'Changes are saved to your GitHub repo so they show up in any browser, including incognito.'
+          : 'Saving to GitHub is OFF — you opened this page without an admin token in the URL. Changes will only stay in this browser.'}
+      </p>
+      <div className="admin-sync-bar" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 999, background: syncOn ? 'rgba(40,140,80,0.15)' : 'rgba(180,40,40,0.12)', color: syncOn ? 'rgb(20,90,50)' : 'rgb(140,20,20)', fontWeight: 600 }}>
+          {syncOn ? 'GitHub sync: ON' : 'GitHub sync: OFF (read-only)'}
+        </span>
+        {syncOn ? <button type="button" className="btn ghost" onClick={copyAdminLink}>Copy secret admin link</button> : null}
+        <button type="button" className="btn ghost" onClick={manualResync}>Reload from GitHub</button>
+      </div>
 
       <div className="admin-grid">
         <form className="admin-form" onSubmit={submit}>
@@ -927,7 +1085,7 @@ function AdminPage() {
             <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ padding: 8 }} />
             {form.cover && (
               <div className="preview-thumb">
-                <img src={form.cover} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom)} />
+                <img src={resolveImageRef(form.cover)} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom)} />
               </div>
             )}
             {form.cover && (
@@ -973,6 +1131,21 @@ function AdminPage() {
           </div>
 
           <div className="field">
+            <label>HOME PAGE PREVIEW IMAGE</label>
+            <input type="file" accept="image/*" onChange={onHomeImageFile} style={{ padding: 8 }} />
+            <p className="field-hint">Optional. This image appears on the homepage carousel/pinned blog phone preview. Existing posts update immediately; new posts use it after publishing.</p>
+            {form.homeImage ? (
+              <div className="home-image-admin-row">
+                {form.homeImage.startsWith('media:')
+                  ? <MediaAsset id={form.homeImage.slice(6)} alt="" />
+                  : <img src={resolveImageRef(form.homeImage)} alt="" />}
+                <span>Homepage preview image selected.</span>
+                <button type="button" onClick={removeHomeImage}>Remove</button>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="field">
             <label>DATE</label>
             <input type="date" value={form.date} onChange={e => setForm(s => ({ ...s, date: e.target.value }))} />
           </div>
@@ -1003,9 +1176,35 @@ function AdminPage() {
                 <label>TINY PRODUCT TITLE ICON</label>
                 <input type="file" accept="image/*" onChange={onProductIconFile} style={{ padding: 8 }} />
                 <div className="product-icon-admin-row">
-                  {form.productIcon ? <img src={form.productIcon} alt="" /> : null}
+                  {form.productIcon ? <img src={resolveImageRef(form.productIcon)} alt="" /> : null}
                   <span>This appears before the product title on the home carousel. Use a small transparent PNG/SVG-style image under 160KB.</span>
                   {form.productIcon ? <button type="button" onClick={() => setForm(s => ({ ...s, productIcon: '' }))}>Remove</button> : null}
+                </div>
+                <div className="product-icon-size-control">
+                  <label>
+                    Icon size ({productIconSize}px)
+                    <input
+                      type="range"
+                      min="18"
+                      max="60"
+                      value={productIconSize}
+                      onChange={e => setForm(s => ({ ...s, productIconSize: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <div className="product-icon-title-preview" aria-live="polite">
+                  {form.productIcon ? (
+                    <img
+                      src={resolveImageRef(form.productIcon)}
+                      alt=""
+                      style={{ width: productIconSize, height: productIconSize }}
+                    />
+                  ) : (
+                    <span className="ink-mark" style={{ color: 'var(--honey-deep)', fontStyle: 'italic' }}>
+                      {(form.title || 'P')[0]}
+                    </span>
+                  )}
+                  <span>{form.title || 'Product title preview'}</span>
                 </div>
               </div>
             </div>
@@ -1118,11 +1317,11 @@ function AdminPage() {
               <button type="button" onClick={() => setShowPreview(false)}>Close</button>
             </div>
             <article className="post-page admin-preview-post">
-              {form.cover ? <div className="post-cover"><img src={form.cover} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
+              {form.cover ? <div className="post-cover"><img src={resolveImageRef(form.cover)} alt="" style={getCoverImageStyle(form.coverPosition, form.coverZoom, { width: '100%', height: '100%', borderRadius: 'inherit' })} /></div> : null}
               <h1>{form.title || 'Untitled draft'}</h1>
               <div className="meta">{form.status === 'product' ? 'PRODUCT · ' : ''}{formatDate(form.date)} · {form.author || 'The Cheervinsky Studio'}{form.pinned && form.published && form.status !== 'product' ? ' · PINNED' : ''}{form.includeInCarousel && form.status === 'product' ? ' · CAROUSEL' : ''}</div>
               <div className="post-body">
-                {form.body ? renderPostBody(form.body, { onMediaChange: updateMediaBlock, onMediaDelete: deleteMediaBlock, onGalleryImageDelete: deleteGalleryImage, onGalleryAdd: addImagesToGallery }) : <p style={{ color: 'var(--ink-3)' }}>Start writing to preview the post body.</p>}
+                {form.body ? renderPostBody(form.body, { onMediaChange: updateMediaBlock, onMediaDelete: deleteMediaBlock, onGalleryImageDelete: deleteGalleryImage, onGalleryImageMove: moveGalleryImage, onGalleryAdd: addImagesToGallery }) : <p style={{ color: 'var(--ink-3)' }}>Start writing to preview the post body.</p>}
               </div>
               {form.status === 'product' && (form.appStore || form.googlePlay) ? (
                 <div className="stores product-detail-stores">
@@ -1154,13 +1353,21 @@ function AdminPage() {
               </div>
             </div>
           </div>
+          <div className="admin-data-tools">
+            <button type="button" className="btn ghost" onClick={exportProjectData}>Export data</button>
+            <label className="btn ghost">
+              Import data
+              <input type="file" accept="application/json" onChange={importProjectData} />
+            </label>
+            <span>Use Export/Import to move your posts into incognito or another browser.</span>
+          </div>
           {filteredPosts.length === 0 && <p style={{ color: 'var(--ink-3)' }}>{postSearch.trim() ? 'No posts match that title.' : 'Nothing here yet.'}</p>}
           {filteredPosts.map(p => {
             const rowTitle = (p.title || '').trim() || 'Untitled post';
             const rowExcerpt = (p.excerpt || '').trim() || 'No excerpt yet.';
             return (
               <div key={p.id} className={'admin-post-row ' + (p.pinned ? 'pinned ' : '') + (p.published === false ? 'unpublished' : '')}>
-                <div className="thumb" style={p.cover ? { backgroundImage: `url(${p.cover})`, backgroundPosition: getCoverPosition(p.coverPosition) } : {}}>
+                <div className="thumb" style={p.cover ? { backgroundImage: `url(${resolveImageRef(p.cover)})`, backgroundPosition: getCoverPosition(p.coverPosition) } : {}}>
                   {!p.cover ? <span>{rowTitle[0]}</span> : null}
                 </div>
                 <div className="info">

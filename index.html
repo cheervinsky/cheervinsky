@@ -8,18 +8,44 @@
 </head>
 <body>
 <div id="root"></div>
+<div id="boot-error" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#fff;color:#222;border:2px solid #c00;border-radius:10px;padding:12px 14px;font:13px/1.4 ui-monospace,Menlo,monospace;box-shadow:0 6px 24px rgba(0,0,0,.25);max-height:50vh;overflow:auto;white-space:pre-wrap"></div>
+<script>
+(function(){
+  function show(msg){
+    var el=document.getElementById('boot-error');
+    if(!el)return;
+    el.style.display='block';
+    el.textContent=(el.textContent? el.textContent+'\n\n':'')+msg;
+  }
+  window.addEventListener('error',function(e){
+    var m=e.message||'unknown error';
+    var src=e.filename? ' ('+e.filename.split('/').pop()+':'+e.lineno+')':'';
+    show('JS ERROR: '+m+src);
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    show('PROMISE REJECTION: '+(e.reason && (e.reason.message||e.reason)||'unknown'));
+  });
+  // If after 6s the root is still empty, something failed silently — say so.
+  setTimeout(function(){
+    var root=document.getElementById('root');
+    if(root && !root.firstChild){
+      show('Page did not render after 6s.\nCheck that build/app.bundle.js exists.\nIf you edited a .jsx file, re-run ./build.sh in the project folder to regenerate the bundle.');
+    }
+  },6000);
+})();
+</script>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-<script src="data/defaults.js"></script>
-<script src="data/store.js"></script>
-<script src="data/media.js"></script>
+<!--
+  Precompiled bundle of data/*.js + components/*.jsx (built with esbuild).
+  Loading a single plain .js file works whether the page is served from a web
+  server OR opened directly with file:// in Chrome — Babel-standalone's runtime
+  fetch of .jsx files is blocked under file://, which is why we precompile.
 
-<script type="text/babel" src="components/shared.jsx"></script>
-<script type="text/babel" src="components/home.jsx"></script>
-<script type="text/babel" src="components/pages.jsx"></script>
-<script type="text/babel" src="components/app.jsx"></script>
+  After editing any .jsx or data/*.js file, re-run ./build.sh to regenerate.
+-->
+<script src="build/app.bundle.js"></script>
 </body>
 </html>
