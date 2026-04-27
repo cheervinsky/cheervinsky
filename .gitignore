@@ -1,0 +1,17 @@
+# macOS noise
+.DS_Store
+**/.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Dependencies (none are committed today, but just in case)
+node_modules/
+
+# Local-only working files
+*.tmp
+.tmp/
