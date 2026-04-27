@@ -330,28 +330,64 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
   }
   let state = load();
   let inFlightSync = null;
+  let localApi = null;
+  let localApiProbe = null;
+  function probeLocalApi() {
+    if (localApiProbe) return localApiProbe;
+    const proto = window.location && window.location.protocol || "";
+    const host = window.location && window.location.hostname || "";
+    if (proto !== "http:" || host !== "localhost" && host !== "127.0.0.1") {
+      localApi = false;
+      return Promise.resolve(false);
+    }
+    localApiProbe = fetch("/api/status", { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((j) => {
+      localApi = !!(j && j.ok);
+      return localApi;
+    }).catch(() => {
+      localApi = false;
+      return false;
+    });
+    return localApiProbe;
+  }
+  probeLocalApi();
   async function refreshFromRemote() {
+    await probeLocalApi();
+    if (localApi) {
+      try {
+        const res = await fetch("/data/posts.json?t=" + Date.now(), { cache: "no-store" });
+        if (res.ok) {
+          const remote = await res.json();
+          state = normalizeRemoteState(remote);
+          saveLocal(state);
+          broadcast();
+        }
+      } catch (e) {
+      }
+      return;
+    }
     if (!SYNC) return;
     try {
       const remote = await SYNC.fetchPosts();
       if (!remote) return;
-      const normalized = {
-        products: Array.isArray(remote.products) ? remote.products : [],
-        posts: Array.isArray(remote.posts) ? remote.posts.map((p) => ({
-          published: true,
-          status: "blog",
-          coverPosition: "50% 0%",
-          coverZoom: 100,
-          homeImage: "",
-          productIconSize: 34,
-          ...p
-        })) : []
-      };
-      state = normalized;
+      state = normalizeRemoteState(remote);
       saveLocal(state);
       broadcast();
     } catch (e) {
     }
+  }
+  function normalizeRemoteState(remote) {
+    return {
+      products: Array.isArray(remote.products) ? remote.products : [],
+      posts: Array.isArray(remote.posts) ? remote.posts.map((p) => ({
+        published: true,
+        status: "blog",
+        coverPosition: "50% 0%",
+        coverZoom: 100,
+        homeImage: "",
+        productIconSize: 34,
+        ...p
+      })) : []
+    };
   }
   if (SYNC) {
     inFlightSync = refreshFromRemote();
@@ -359,8 +395,37 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
   window.addEventListener("cheer-admin-token-changed", () => {
     inFlightSync = refreshFromRemote();
   });
+  async function uploadMediaLocal(filenameHint, blob) {
+    const ext = mimeExt(blob && blob.type) || "";
+    const safeBase = (filenameHint || "asset").replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "asset";
+    const stamp = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+    const filename = safeBase + "-" + stamp + ext;
+    const base64 = await blobToBase64(blob);
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename, base64 })
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.ok) throw new Error(j.message || "Upload failed (" + res.status + ")");
+    return j.ref;
+  }
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
   async function externaliseImages(post) {
-    if (!SYNC || !SYNC.hasToken()) return post;
+    const useLocal = !!localApi;
+    const useGh = !useLocal && SYNC && SYNC.hasToken();
+    if (!useLocal && !useGh) return post;
     const fields = ["cover", "homeImage", "productIcon"];
     const next = { ...post };
     for (const field of fields) {
@@ -386,10 +451,10 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
       }
       if (!blob) continue;
       try {
-        const ref = await SYNC.uploadMedia(hint, blob);
+        const ref = useLocal ? await uploadMediaLocal(hint, blob) : await SYNC.uploadMedia(hint, blob);
         next[field] = ref;
       } catch (e) {
-        throw new Error("Could not upload " + field + " to GitHub: " + (e && e.message ? e.message : e));
+        throw new Error("Could not upload " + field + ": " + (e && e.message ? e.message : e));
       }
     }
     if (typeof next.body === "string") {
@@ -424,6 +489,7 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
   async function maybeExternaliseSingle(src) {
     if (!src) return src;
     if (src.startsWith("ghmedia/")) return src;
+    if (src.startsWith("data/media/")) return src;
     if (/^https?:\/\//i.test(src)) return src;
     let blob = null;
     let hint = "asset";
@@ -443,7 +509,7 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
     }
     if (!blob) return src;
     try {
-      return await SYNC.uploadMedia(hint, blob);
+      return localApi ? await uploadMediaLocal(hint, blob) : await SYNC.uploadMedia(hint, blob);
     } catch (e) {
       throw e;
     }
@@ -483,6 +549,21 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
     }
   }
   async function pushToRemote() {
+    await probeLocalApi();
+    if (localApi) {
+      try {
+        const res = await fetch("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(state)
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.ok) return { ok: false, message: j.message || "Local save failed (" + res.status + ")" };
+        return { ok: true, message: j.message || "Saved to data/posts.json" };
+      } catch (e) {
+        return { ok: false, message: "Local save failed: " + (e && e.message || e) };
+      }
+    }
     if (!SYNC || !SYNC.hasToken()) return { ok: true, message: "" };
     return SYNC.savePosts(state);
   }
@@ -508,7 +589,10 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
       return null;
     }
     broadcast();
-    if (SYNC && SYNC.hasToken() && opts.externaliseId) {
+    await probeLocalApi();
+    const canExternalise = !!localApi || SYNC && SYNC.hasToken();
+    const canPush = canExternalise;
+    if (canExternalise && opts.externaliseId) {
       try {
         const idx = state.posts.findIndex((p) => p.id === opts.externaliseId);
         if (idx >= 0) {
@@ -523,7 +607,7 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
         notifyRemoteSync({ ok: false, message: "Could not upload images: " + (e && e.message ? e.message : e) });
       }
     }
-    if (SYNC && SYNC.hasToken()) {
+    if (canPush) {
       const result = await pushToRemote();
       notifyRemoteSync(result);
       if (!result.ok) {
@@ -551,7 +635,9 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
         return false;
       }
       broadcast();
-      if (SYNC && SYNC.hasToken()) pushToRemote().then(notifyRemoteSync);
+      probeLocalApi().then(() => {
+        if (localApi || SYNC && SYNC.hasToken()) pushToRemote().then(notifyRemoteSync);
+      });
       return true;
     },
     getPosts() {
@@ -864,6 +950,18 @@ function Carousel() {
   const [idx, setIdx] = useState2(0);
   const [phase, setPhase] = useState2("in");
   const timerRef = useRef2(null);
+  useEffect2(() => {
+    if (!products.length) return void 0;
+    timerRef.current = setInterval(() => {
+      setPhase("out");
+      setTimeout(() => {
+        setIdx((i) => (i + 1 + products.length) % products.length);
+        setPhase("enter");
+        requestAnimationFrame(() => requestAnimationFrame(() => setPhase("in")));
+      }, 1150);
+    }, 1e4);
+    return () => clearInterval(timerRef.current);
+  }, [idx, products.length]);
   if (!products.length) return null;
   const advance = (next) => {
     setPhase("out");
@@ -873,12 +971,6 @@ function Carousel() {
       requestAnimationFrame(() => requestAnimationFrame(() => setPhase("in")));
     }, 1150);
   };
-  useEffect2(() => {
-    timerRef.current = setInterval(() => {
-      advance(idx + 1);
-    }, 1e4);
-    return () => clearInterval(timerRef.current);
-  }, [idx, products.length]);
   const goto = (i) => {
     clearInterval(timerRef.current);
     advance(i);
@@ -1409,7 +1501,8 @@ function AdminPage() {
       }
     }, 200);
   }
-  const syncOn = !!(window.cheerSync && window.cheerSync.hasToken && window.cheerSync.hasToken());
+  const localServerOn = window.location.protocol === "http:" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  const syncOn = localServerOn || !!(window.cheerSync && window.cheerSync.hasToken && window.cheerSync.hasToken());
   function reset() {
     setEditingId(null);
     setForm({ title: "", excerpt: "", cover: "", coverPosition: "50% 0%", coverZoom: 100, homeImage: "", productIcon: "", productIconSize: 34, appStore: "", googlePlay: "", includeInCarousel: false, author: "The Cheervinsky Studio", body: "", pinned: false, published: true, status: "blog", date: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) });
@@ -1731,7 +1824,7 @@ function AdminPage() {
     };
     reader.readAsText(file);
   }
-  return /* @__PURE__ */ React.createElement("div", { className: "page admin-page" }, toast ? /* @__PURE__ */ React.createElement("div", { className: "admin-toast", role: "status", "aria-live": "polite" }, toast) : null, /* @__PURE__ */ React.createElement("h1", null, "Manage posts"), /* @__PURE__ */ React.createElement("p", { className: "lede" }, "Add new blog entries, edit existing ones, and choose which post appears on the homepage.", " ", syncOn ? "Changes are saved to your GitHub repo so they show up in any browser, including incognito." : "Saving to GitHub is OFF \u2014 you opened this page without an admin token in the URL. Changes will only stay in this browser."), /* @__PURE__ */ React.createElement("div", { className: "admin-sync-bar", style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, padding: "4px 10px", borderRadius: 999, background: syncOn ? "rgba(40,140,80,0.15)" : "rgba(180,40,40,0.12)", color: syncOn ? "rgb(20,90,50)" : "rgb(140,20,20)", fontWeight: 600 } }, syncOn ? "GitHub sync: ON" : "GitHub sync: OFF (read-only)"), syncOn ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: copyAdminLink }, "Copy secret admin link") : null, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: manualResync }, "Reload from GitHub"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn dark", onClick: downloadPostsJson, title: "Download posts.json \u2014 then move it into data/ and git push to publish." }, "Publish to production\u2026")), /* @__PURE__ */ React.createElement("div", { className: "admin-grid" }, /* @__PURE__ */ React.createElement("form", { className: "admin-form", onSubmit: submit }, /* @__PURE__ */ React.createElement("h2", null, editingId ? "Edit post" : "New post"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "TITLE"), /* @__PURE__ */ React.createElement("input", { value: form.title, onChange: (e) => setForm((s) => ({ ...s, title: e.target.value })), placeholder: "A short, gentle title", required: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "EXCERPT (1\u20132 sentences)"), /* @__PURE__ */ React.createElement("textarea", { value: form.excerpt, onChange: (e) => setForm((s) => ({ ...s, excerpt: e.target.value })), placeholder: "A short summary that appears on the home page and the blog list.", style: { minHeight: 70 }, required: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "COVER IMAGE"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { padding: 8 } }), form.cover && /* @__PURE__ */ React.createElement("div", { className: "preview-thumb" }, /* @__PURE__ */ React.createElement("img", { src: resolveImageRef(form.cover), alt: "", style: getCoverImageStyle(form.coverPosition, form.coverZoom) })), form.cover && /* @__PURE__ */ React.createElement("div", { className: "cover-position-control" }, /* @__PURE__ */ React.createElement("span", null, "Adjust visible cover area"), /* @__PURE__ */ React.createElement("label", null, "Make image bigger / smaller", /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "page admin-page" }, toast ? /* @__PURE__ */ React.createElement("div", { className: "admin-toast", role: "status", "aria-live": "polite" }, toast) : null, /* @__PURE__ */ React.createElement("h1", null, "Manage posts"), /* @__PURE__ */ React.createElement("p", { className: "lede" }, "Add new blog entries, edit existing ones, and choose which post appears on the homepage.", " ", localServerOn ? "Local dev server detected \u2014 Save writes data/posts.json (and any uploaded images) directly to disk. Then `git push` to publish." : syncOn ? "Changes are saved to your GitHub repo so they show up in any browser, including incognito." : "Saving to GitHub is OFF \u2014 open this page from the dev server (localhost) or with an admin token in the URL. Changes will only stay in this browser otherwise."), /* @__PURE__ */ React.createElement("div", { className: "admin-sync-bar", style: { display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, padding: "4px 10px", borderRadius: 999, background: syncOn ? "rgba(40,140,80,0.15)" : "rgba(180,40,40,0.12)", color: syncOn ? "rgb(20,90,50)" : "rgb(140,20,20)", fontWeight: 600 } }, localServerOn ? "Sync: writes to disk" : syncOn ? "GitHub sync: ON" : "Sync: OFF (read-only)"), syncOn ? /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: copyAdminLink }, "Copy secret admin link") : null, /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn ghost", onClick: manualResync }, "Reload from GitHub"), /* @__PURE__ */ React.createElement("button", { type: "button", className: "btn dark", onClick: downloadPostsJson, title: "Download posts.json \u2014 then move it into data/ and git push to publish." }, "Publish to production\u2026")), /* @__PURE__ */ React.createElement("div", { className: "admin-grid" }, /* @__PURE__ */ React.createElement("form", { className: "admin-form", onSubmit: submit }, /* @__PURE__ */ React.createElement("h2", null, editingId ? "Edit post" : "New post"), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "TITLE"), /* @__PURE__ */ React.createElement("input", { value: form.title, onChange: (e) => setForm((s) => ({ ...s, title: e.target.value })), placeholder: "A short, gentle title", required: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "EXCERPT (1\u20132 sentences)"), /* @__PURE__ */ React.createElement("textarea", { value: form.excerpt, onChange: (e) => setForm((s) => ({ ...s, excerpt: e.target.value })), placeholder: "A short summary that appears on the home page and the blog list.", style: { minHeight: 70 }, required: true })), /* @__PURE__ */ React.createElement("div", { className: "field" }, /* @__PURE__ */ React.createElement("label", null, "COVER IMAGE"), /* @__PURE__ */ React.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { padding: 8 } }), form.cover && /* @__PURE__ */ React.createElement("div", { className: "preview-thumb" }, /* @__PURE__ */ React.createElement("img", { src: resolveImageRef(form.cover), alt: "", style: getCoverImageStyle(form.coverPosition, form.coverZoom) })), form.cover && /* @__PURE__ */ React.createElement("div", { className: "cover-position-control" }, /* @__PURE__ */ React.createElement("span", null, "Adjust visible cover area"), /* @__PURE__ */ React.createElement("label", null, "Make image bigger / smaller", /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "range",

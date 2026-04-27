@@ -25,6 +25,23 @@ function Carousel() {
   const [phase, setPhase] = useState2('in'); // 'in' | 'out'
   const timerRef = useRef2(null);
 
+  // NOTE: all hooks MUST be called before any conditional early return,
+  // otherwise React throws "Rendered more hooks than during the previous
+  // render" the moment products goes from empty -> non-empty (e.g. when the
+  // store finishes loading from GitHub).
+  useEffect2(() => {
+    if (!products.length) return undefined;
+    timerRef.current = setInterval(() => {
+      setPhase('out');
+      setTimeout(() => {
+        setIdx(i => (i + 1 + products.length) % products.length);
+        setPhase('enter');
+        requestAnimationFrame(() => requestAnimationFrame(() => setPhase('in')));
+      }, 1150);
+    }, 10000);
+    return () => clearInterval(timerRef.current);
+  }, [idx, products.length]);
+
   if (!products.length) return null;
 
   const advance = (next) => {
@@ -35,13 +52,6 @@ function Carousel() {
       requestAnimationFrame(() => requestAnimationFrame(() => setPhase('in')));
     }, 1150);
   };
-
-  useEffect2(() => {
-    timerRef.current = setInterval(() => {
-      advance(idx + 1);
-    }, 10000);
-    return () => clearInterval(timerRef.current);
-  }, [idx, products.length]);
 
   const goto = (i) => {
     clearInterval(timerRef.current);

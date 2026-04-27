@@ -62,32 +62,70 @@
   let state = load();
   let inFlightSync = null;
 
-  // ---- Background pull from GitHub ----
+  // ---- Local dev-server detection ----
+  // When the page is served from http://localhost:* (or 127.0.0.1), check for
+  // serve.js's /api/save endpoint. If it's there, all writes go to disk via
+  // the local server (no PAT needed) — the workflow is then "edit → git push".
+  let localApi = null;
+  let localApiProbe = null;
+  function probeLocalApi() {
+    if (localApiProbe) return localApiProbe;
+    const proto = (window.location && window.location.protocol) || '';
+    const host = (window.location && window.location.hostname) || '';
+    if (proto !== 'http:' || (host !== 'localhost' && host !== '127.0.0.1')) {
+      localApi = false;
+      return Promise.resolve(false);
+    }
+    localApiProbe = fetch('/api/status', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { localApi = !!(j && j.ok); return localApi; })
+      .catch(() => { localApi = false; return false; });
+    return localApiProbe;
+  }
+  probeLocalApi();
+
+  // ---- Background pull from GitHub (or local /data/posts.json on the dev server) ----
   // Fires once on page load, then again when admin token becomes available.
   async function refreshFromRemote() {
+    // If the local dev server is up, prefer its on-disk posts.json — that's
+    // the source of truth in the local-edit workflow.
+    await probeLocalApi();
+    if (localApi) {
+      try {
+        const res = await fetch('/data/posts.json?t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          const remote = await res.json();
+          state = normalizeRemoteState(remote);
+          saveLocal(state);
+          broadcast();
+        }
+      } catch (e) { /* keep local state */ }
+      return;
+    }
     if (!SYNC) return;
     try {
       const remote = await SYNC.fetchPosts();
       if (!remote) return; // 404 or fetch failed — keep current state
-      // Normalize shape, in case the file is older
-      const normalized = {
-        products: Array.isArray(remote.products) ? remote.products : [],
-        posts: Array.isArray(remote.posts) ? remote.posts.map(p => ({
-          published: true,
-          status: 'blog',
-          coverPosition: '50% 0%',
-          coverZoom: 100,
-          homeImage: '',
-          productIconSize: 34,
-          ...p,
-        })) : [],
-      };
-      state = normalized;
+      state = normalizeRemoteState(remote);
       saveLocal(state); // cache for next offline open
       broadcast();
     } catch (e) {
       // Stay quiet — the UI keeps working from localStorage
     }
+  }
+  function normalizeRemoteState(remote) {
+    return {
+      products: Array.isArray(remote.products) ? remote.products : [],
+      posts: Array.isArray(remote.posts) ? remote.posts.map(p => ({
+        published: true,
+        status: 'blog',
+        coverPosition: '50% 0%',
+        coverZoom: 100,
+        homeImage: '',
+        productIconSize: 34,
+        ...p,
+      })) : [],
+    };
   }
 
   // Kick off initial pull (don't await — UI renders from localStorage immediately).
@@ -98,11 +136,51 @@
     inFlightSync = refreshFromRemote();
   });
 
+  // ---- Local-server media upload ----
+  // Uploads a blob via /api/upload, which writes data/media/<filename> to disk.
+  // Returns 'data/media/<filename>' (a relative path the static site can serve).
+  async function uploadMediaLocal(filenameHint, blob) {
+    const ext = mimeExt(blob && blob.type) || '';
+    const safeBase = (filenameHint || 'asset')
+      .replace(/\.[^.]+$/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32) || 'asset';
+    const stamp = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
+    const filename = safeBase + '-' + stamp + ext;
+    const base64 = await blobToBase64(blob);
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename, base64 }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !j.ok) throw new Error(j.message || ('Upload failed (' + res.status + ')'));
+    return j.ref; // 'data/media/<filename>'
+  }
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const comma = result.indexOf(',');
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // ---- Externalising images before commit ----
   // Walks a post object and replaces any 'data:' URL or 'media:<id>' reference
-  // with a 'ghmedia/<filename>' reference (uploading the bytes to the repo).
+  // with either:
+  //   - 'data/media/<filename>' (local server mode) — committable as a regular file
+  //   - 'ghmedia/<filename>'    (GitHub PAT mode)   — pushed via Contents API
   async function externaliseImages(post) {
-    if (!SYNC || !SYNC.hasToken()) return post;
+    const useLocal = !!localApi;
+    const useGh = !useLocal && SYNC && SYNC.hasToken();
+    if (!useLocal && !useGh) return post;
     const fields = ['cover', 'homeImage', 'productIcon'];
     const next = { ...post };
     for (const field of fields) {
@@ -131,10 +209,10 @@
       }
       if (!blob) continue;
       try {
-        const ref = await SYNC.uploadMedia(hint, blob);
+        const ref = useLocal ? await uploadMediaLocal(hint, blob) : await SYNC.uploadMedia(hint, blob);
         next[field] = ref;
       } catch (e) {
-        throw new Error('Could not upload ' + field + ' to GitHub: ' + (e && e.message ? e.message : e));
+        throw new Error('Could not upload ' + field + ': ' + (e && e.message ? e.message : e));
       }
     }
 
@@ -174,6 +252,7 @@
   async function maybeExternaliseSingle(src) {
     if (!src) return src;
     if (src.startsWith('ghmedia/')) return src;
+    if (src.startsWith('data/media/')) return src;
     if (/^https?:\/\//i.test(src)) return src;
     let blob = null;
     let hint = 'asset';
@@ -192,7 +271,7 @@
     }
     if (!blob) return src;
     try {
-      return await SYNC.uploadMedia(hint, blob);
+      return localApi ? await uploadMediaLocal(hint, blob) : await SYNC.uploadMedia(hint, blob);
     } catch (e) {
       throw e;
     }
@@ -224,10 +303,27 @@
     }
   }
 
-  // ---- Push the whole state to GitHub (admin only) ----
-  // Returns { ok, message }. If no token, returns { ok: true, message: '' }
-  // — silent skip so non-admin code paths don't break.
+  // ---- Push the whole state to disk/GitHub (admin only) ----
+  // Returns { ok, message }. Quietly no-ops when there's no destination.
+  // Preference order:
+  //   1. Local dev server (serve.js) → writes data/posts.json on disk
+  //   2. GitHub Contents API via PAT → commits straight to the repo
   async function pushToRemote() {
+    await probeLocalApi();
+    if (localApi) {
+      try {
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j.ok) return { ok: false, message: j.message || 'Local save failed (' + res.status + ')' };
+        return { ok: true, message: j.message || 'Saved to data/posts.json' };
+      } catch (e) {
+        return { ok: false, message: 'Local save failed: ' + (e && e.message || e) };
+      }
+    }
     if (!SYNC || !SYNC.hasToken()) return { ok: true, message: '' };
     return SYNC.savePosts(state);
   }
@@ -257,8 +353,13 @@
     }
     broadcast();
 
-    // If admin token is held, externalise any new images and push posts.json.
-    if (SYNC && SYNC.hasToken() && opts.externaliseId) {
+    // Make sure we know whether the local server is up before deciding what
+    // to do with image bytes and where to push the JSON.
+    await probeLocalApi();
+    const canExternalise = !!localApi || (SYNC && SYNC.hasToken());
+    const canPush = canExternalise;
+
+    if (canExternalise && opts.externaliseId) {
       try {
         const idx = state.posts.findIndex(p => p.id === opts.externaliseId);
         if (idx >= 0) {
@@ -274,12 +375,11 @@
         // We'll still try to push the JSON so the text changes aren't lost.
       }
     }
-    if (SYNC && SYNC.hasToken()) {
+    if (canPush) {
       const result = await pushToRemote();
       notifyRemoteSync(result);
       if (!result.ok) {
         // Keep local change so the user doesn't lose work; surface the failure.
-        // (We don't roll back state — they can retry by editing again.)
       }
     }
     return mutated;
@@ -298,8 +398,10 @@
       state = nextState;
       if (!saveLocal(state)) { state = previousState; return false; }
       broadcast();
-      // Push to GitHub if admin
-      if (SYNC && SYNC.hasToken()) pushToRemote().then(notifyRemoteSync);
+      // Push to disk (local server) or GitHub (PAT).
+      probeLocalApi().then(() => {
+        if (localApi || (SYNC && SYNC.hasToken())) pushToRemote().then(notifyRemoteSync);
+      });
       return true;
     },
     getPosts() { return state.posts.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')); },

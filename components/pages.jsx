@@ -718,7 +718,8 @@ function AdminPage() {
       }
     }, 200);
   }
-  const syncOn = !!(window.cheerSync && window.cheerSync.hasToken && window.cheerSync.hasToken());
+  const localServerOn = (window.location.protocol === 'http:') && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const syncOn = localServerOn || !!(window.cheerSync && window.cheerSync.hasToken && window.cheerSync.hasToken());
   function reset() {
     setEditingId(null);
     setForm({ title: '', excerpt: '', cover: '', coverPosition: '50% 0%', coverZoom: 100, homeImage: '', productIcon: '', productIconSize: 34, appStore: '', googlePlay: '', includeInCarousel: false, author: 'The Cheervinsky Studio', body: '', pinned: false, published: true, status: 'blog', date: new Date().toISOString().slice(0, 10) });
@@ -1072,13 +1073,15 @@ function AdminPage() {
       <p className="lede">
         Add new blog entries, edit existing ones, and choose which post appears on the homepage.
         {' '}
-        {syncOn
-          ? 'Changes are saved to your GitHub repo so they show up in any browser, including incognito.'
-          : 'Saving to GitHub is OFF — you opened this page without an admin token in the URL. Changes will only stay in this browser.'}
+        {localServerOn
+          ? 'Local dev server detected — Save writes data/posts.json (and any uploaded images) directly to disk. Then `git push` to publish.'
+          : (syncOn
+            ? 'Changes are saved to your GitHub repo so they show up in any browser, including incognito.'
+            : 'Saving to GitHub is OFF — open this page from the dev server (localhost) or with an admin token in the URL. Changes will only stay in this browser otherwise.')}
       </p>
       <div className="admin-sync-bar" style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 999, background: syncOn ? 'rgba(40,140,80,0.15)' : 'rgba(180,40,40,0.12)', color: syncOn ? 'rgb(20,90,50)' : 'rgb(140,20,20)', fontWeight: 600 }}>
-          {syncOn ? 'GitHub sync: ON' : 'GitHub sync: OFF (read-only)'}
+          {localServerOn ? 'Sync: writes to disk' : (syncOn ? 'GitHub sync: ON' : 'Sync: OFF (read-only)')}
         </span>
         {syncOn ? <button type="button" className="btn ghost" onClick={copyAdminLink}>Copy secret admin link</button> : null}
         <button type="button" className="btn ghost" onClick={manualResync}>Reload from GitHub</button>
