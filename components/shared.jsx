@@ -90,7 +90,7 @@ function IconEdit() {
 function StoreButton({ kind, href = '#' }) {
   if (kind === 'apple') {
     return (
-      <a href={href} className="store-btn" aria-label="Download on the App Store">
+      <a href={href} className="store-btn" aria-label="Download on the App Store" target="_blank" rel="noopener noreferrer">
         <svg className="store-svg" viewBox="0 0 24 24" fill="currentColor">
           <path d="M17.05 12.04c-.03-2.93 2.4-4.34 2.5-4.4-1.36-1.99-3.49-2.27-4.24-2.3-1.81-.18-3.53 1.06-4.45 1.06-.93 0-2.34-1.04-3.85-1.01-1.97.03-3.81 1.16-4.83 2.93-2.06 3.58-.53 8.86 1.48 11.77.98 1.42 2.16 3.02 3.7 2.96 1.49-.06 2.05-.96 3.85-.96 1.79 0 2.31.96 3.88.93 1.6-.03 2.62-1.45 3.59-2.88 1.13-1.65 1.6-3.25 1.62-3.34-.04-.02-3.1-1.19-3.13-4.72zM14.36 3.6c.81-.99 1.36-2.36 1.21-3.72-1.17.05-2.59.78-3.43 1.76-.75.87-1.41 2.27-1.23 3.6 1.31.1 2.65-.66 3.45-1.64z"/>
         </svg>
@@ -102,7 +102,7 @@ function StoreButton({ kind, href = '#' }) {
     );
   }
   return (
-    <a href={href} className="store-btn" aria-label="Get it on Google Play">
+    <a href={href} className="store-btn" aria-label="Get it on Google Play" target="_blank" rel="noopener noreferrer">
       <svg className="store-svg" viewBox="0 0 24 24">
         <defs>
           <linearGradient id="gp1" x1="0" x2="1" y1="0" y2="1">
