@@ -11,7 +11,7 @@ function Carousel() {
       title: p.title,
       tagline: p.excerpt,
       description: p.excerpt || p.body,
-      hero: p.homeImage || p.cover || 'assets/iphone-mockup.png',
+      hero: p.homeImage || p.cover || '',
       heroPosition: p.homeImagePosition || '50% 50%',
       heroZoom: p.homeImageZoom || 100,
       productIcon: p.productIcon || '',
@@ -154,7 +154,7 @@ function PinnedPost() {
         <div className="phone-stage pinned-phone-stage">
           <div className="phone-shadow" />
           <PhoneMockup
-            src={post.homeImage || post.cover || 'assets/iphone-mockup.png'}
+            src={post.homeImage || post.cover || ''}
             alt={post.title}
             className="pinned-phone"
             innerStyle={getHomeImageStyle(post.homeImagePosition, post.homeImageZoom)}

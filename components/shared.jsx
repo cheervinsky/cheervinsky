@@ -291,11 +291,10 @@ function PhoneMockup({ src, alt = '', className = '', innerStyle = {} }) {
     };
   }, [src]);
 
-  // The iPhone mockup PNG already has a transparent screen area;
-  // we render the screen image *behind* the frame using absolute positioning.
+  // Product/home images are uploaded as complete compositions. Keep this as a
+  // single image layer so Safari cannot show a broken placeholder for a missing frame asset.
   return (
     <div className={'phone-frame ' + className} style={{ position: 'relative', height: '100%', aspectRatio: '0.49' }}>
-      {/* Screen image */}
       {resolvedSrc ? (
         <img
           src={resolvedSrc}
@@ -311,12 +310,6 @@ function PhoneMockup({ src, alt = '', className = '', innerStyle = {} }) {
           }}
         />
       ) : null}
-      {/* Frame on top */}
-      <img
-        src="assets/iphone-mockup.png"
-        alt=""
-        style={{ position: 'relative', height: '100%', zIndex: 2, pointerEvents: 'none' }}
-      />
     </div>
   );
 }

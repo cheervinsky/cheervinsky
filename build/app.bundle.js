@@ -791,9 +791,9 @@ function IconEdit() {
 }
 function StoreButton({ kind, href = "#" }) {
   if (kind === "apple") {
-    return /* @__PURE__ */ React.createElement("a", { href, className: "store-btn", "aria-label": "Download on the App Store" }, /* @__PURE__ */ React.createElement("svg", { className: "store-svg", viewBox: "0 0 24 24", fill: "currentColor" }, /* @__PURE__ */ React.createElement("path", { d: "M17.05 12.04c-.03-2.93 2.4-4.34 2.5-4.4-1.36-1.99-3.49-2.27-4.24-2.3-1.81-.18-3.53 1.06-4.45 1.06-.93 0-2.34-1.04-3.85-1.01-1.97.03-3.81 1.16-4.83 2.93-2.06 3.58-.53 8.86 1.48 11.77.98 1.42 2.16 3.02 3.7 2.96 1.49-.06 2.05-.96 3.85-.96 1.79 0 2.31.96 3.88.93 1.6-.03 2.62-1.45 3.59-2.88 1.13-1.65 1.6-3.25 1.62-3.34-.04-.02-3.1-1.19-3.13-4.72zM14.36 3.6c.81-.99 1.36-2.36 1.21-3.72-1.17.05-2.59.78-3.43 1.76-.75.87-1.41 2.27-1.23 3.6 1.31.1 2.65-.66 3.45-1.64z" })), /* @__PURE__ */ React.createElement("span", { className: "label" }, /* @__PURE__ */ React.createElement("span", { className: "small" }, "Download on the"), /* @__PURE__ */ React.createElement("span", { className: "big" }, "App Store")));
+    return /* @__PURE__ */ React.createElement("a", { href, className: "store-btn", "aria-label": "Download on the App Store", target: "_blank", rel: "noopener noreferrer" }, /* @__PURE__ */ React.createElement("svg", { className: "store-svg", viewBox: "0 0 24 24", fill: "currentColor" }, /* @__PURE__ */ React.createElement("path", { d: "M17.05 12.04c-.03-2.93 2.4-4.34 2.5-4.4-1.36-1.99-3.49-2.27-4.24-2.3-1.81-.18-3.53 1.06-4.45 1.06-.93 0-2.34-1.04-3.85-1.01-1.97.03-3.81 1.16-4.83 2.93-2.06 3.58-.53 8.86 1.48 11.77.98 1.42 2.16 3.02 3.7 2.96 1.49-.06 2.05-.96 3.85-.96 1.79 0 2.31.96 3.88.93 1.6-.03 2.62-1.45 3.59-2.88 1.13-1.65 1.6-3.25 1.62-3.34-.04-.02-3.1-1.19-3.13-4.72zM14.36 3.6c.81-.99 1.36-2.36 1.21-3.72-1.17.05-2.59.78-3.43 1.76-.75.87-1.41 2.27-1.23 3.6 1.31.1 2.65-.66 3.45-1.64z" })), /* @__PURE__ */ React.createElement("span", { className: "label" }, /* @__PURE__ */ React.createElement("span", { className: "small" }, "Download on the"), /* @__PURE__ */ React.createElement("span", { className: "big" }, "App Store")));
   }
-  return /* @__PURE__ */ React.createElement("a", { href, className: "store-btn", "aria-label": "Get it on Google Play" }, /* @__PURE__ */ React.createElement("svg", { className: "store-svg", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "gp1", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#00D4FF" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#00B0FF" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp2", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#00F076" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#00C264" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp3", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#FFE000" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#FF9100" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp4", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#FF3A44" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#C31162" }))), /* @__PURE__ */ React.createElement("path", { d: "M3.6 2.7C3.2 3.05 3 3.5 3 4v16c0 .5.2.95.6 1.3L13 12 3.6 2.7z", fill: "url(#gp1)" }), /* @__PURE__ */ React.createElement("path", { d: "M16.4 8.85L13 12l3.4 3.15 3.5-2.05c.95-.55.95-1.65 0-2.2l-3.5-2.05z", fill: "url(#gp3)" }), /* @__PURE__ */ React.createElement("path", { d: "M3.6 2.7L13 12l3.4-3.15L4.7 2.05c-.4-.2-.8-.2-1.1.05z", fill: "url(#gp2)" }), /* @__PURE__ */ React.createElement("path", { d: "M3.6 21.3c.3.25.7.25 1.1.05l11.7-6.8L13 12 3.6 21.3z", fill: "url(#gp4)" })), /* @__PURE__ */ React.createElement("span", { className: "label" }, /* @__PURE__ */ React.createElement("span", { className: "small" }, "GET IT ON"), /* @__PURE__ */ React.createElement("span", { className: "big" }, "Google Play")));
+  return /* @__PURE__ */ React.createElement("a", { href, className: "store-btn", "aria-label": "Get it on Google Play", target: "_blank", rel: "noopener noreferrer" }, /* @__PURE__ */ React.createElement("svg", { className: "store-svg", viewBox: "0 0 24 24" }, /* @__PURE__ */ React.createElement("defs", null, /* @__PURE__ */ React.createElement("linearGradient", { id: "gp1", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#00D4FF" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#00B0FF" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp2", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#00F076" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#00C264" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp3", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#FFE000" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#FF9100" })), /* @__PURE__ */ React.createElement("linearGradient", { id: "gp4", x1: "0", x2: "1", y1: "0", y2: "1" }, /* @__PURE__ */ React.createElement("stop", { offset: "0", stopColor: "#FF3A44" }), /* @__PURE__ */ React.createElement("stop", { offset: "1", stopColor: "#C31162" }))), /* @__PURE__ */ React.createElement("path", { d: "M3.6 2.7C3.2 3.05 3 3.5 3 4v16c0 .5.2.95.6 1.3L13 12 3.6 2.7z", fill: "url(#gp1)" }), /* @__PURE__ */ React.createElement("path", { d: "M16.4 8.85L13 12l3.4 3.15 3.5-2.05c.95-.55.95-1.65 0-2.2l-3.5-2.05z", fill: "url(#gp3)" }), /* @__PURE__ */ React.createElement("path", { d: "M3.6 2.7L13 12l3.4-3.15L4.7 2.05c-.4-.2-.8-.2-1.1.05z", fill: "url(#gp2)" }), /* @__PURE__ */ React.createElement("path", { d: "M3.6 21.3c.3.25.7.25 1.1.05l11.7-6.8L13 12 3.6 21.3z", fill: "url(#gp4)" })), /* @__PURE__ */ React.createElement("span", { className: "label" }, /* @__PURE__ */ React.createElement("span", { className: "small" }, "GET IT ON"), /* @__PURE__ */ React.createElement("span", { className: "big" }, "Google Play")));
 }
 function Header({ route }) {
   const [isScrolled, setIsScrolled] = useState(route !== "home");
@@ -916,14 +916,7 @@ function PhoneMockup({ src, alt = "", className = "", innerStyle = {} }) {
         ...innerStyle
       }
     }
-  ) : null, /* @__PURE__ */ React.createElement(
-    "img",
-    {
-      src: "assets/iphone-mockup.png",
-      alt: "",
-      style: { position: "relative", height: "100%", zIndex: 2, pointerEvents: "none" }
-    }
-  ));
+  ) : null);
 }
 Object.assign(window, {
   parseHash,
@@ -954,7 +947,7 @@ function Carousel() {
     title: p.title,
     tagline: p.excerpt,
     description: p.excerpt || p.body,
-    hero: p.homeImage || p.cover || "assets/iphone-mockup.png",
+    hero: p.homeImage || p.cover || "",
     heroPosition: p.homeImagePosition || "50% 50%",
     heroZoom: p.homeImageZoom || 100,
     productIcon: p.productIcon || "",
@@ -1024,7 +1017,7 @@ function PinnedPost() {
   return /* @__PURE__ */ React.createElement("section", { className: "section" }, /* @__PURE__ */ React.createElement(CurvyDivider, null), /* @__PURE__ */ React.createElement("div", { className: "pinned-blog" }, /* @__PURE__ */ React.createElement("div", { className: "phone-stage pinned-phone-stage" }, /* @__PURE__ */ React.createElement("div", { className: "phone-shadow" }), /* @__PURE__ */ React.createElement(
     PhoneMockup,
     {
-      src: post.homeImage || post.cover || "assets/iphone-mockup.png",
+      src: post.homeImage || post.cover || "",
       alt: post.title,
       className: "pinned-phone",
       innerStyle: getHomeImageStyle(post.homeImagePosition, post.homeImageZoom)
