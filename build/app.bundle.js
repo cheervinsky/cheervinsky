@@ -63,8 +63,9 @@ Finally. Markdown, PDF, or plain text. Your data, your file, no account required
 };
 (function() {
   const CONFIG = {
-    owner: "itmaryna",
-    repo: "cheervinsky",
+    // Must match the GitHub repo that holds data/posts.json (user/org site repo name).
+    owner: "cheervinsky",
+    repo: "cheervinsky.github.io",
     branch: "main",
     dataPath: "data/posts.json",
     mediaDir: "data/media"
