@@ -147,6 +147,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log('  Cheervinsky dev server running.');
   console.log('  Open:   http://localhost:' + PORT + '/');
   console.log('  Admin:  http://localhost:' + PORT + '/#admin');
-  console.log('  (Saves write to data/posts.json — then `git push` to publish.)');
+  console.log('  (Save writes data/posts.json and data/media/ — then `git push` to publish.)');
   console.log('');
 });

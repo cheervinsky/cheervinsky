@@ -1183,7 +1183,7 @@ function AdminPage() {
         Add new blog entries, edit existing ones, and choose which post appears on the homepage.
         {' '}
         {localServerOn
-          ? 'Local dev server detected — Save writes data/posts.json (and any uploaded images) directly to disk. Then `git push` to publish.'
+          ? 'Local dev server detected — Edit → save (writes data/posts.json + data/media/). Then `git push` to publish.'
           : (syncOn
             ? 'Changes are saved to your GitHub repo so they show up in any browser, including incognito.'
             : 'Saving to GitHub is OFF — open this page from the dev server (localhost) or with an admin token in the URL. Changes will only stay in this browser otherwise.')}
